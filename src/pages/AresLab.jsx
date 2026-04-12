@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import aresLogo from "@/assets/ares-logo.jpg";
+import { supabase } from "@/integrations/supabase/client";
 
 const SHEET_ID = "1QKD_Oxaf-a7hukGtK5o-bsRzzzZbDvvgVh7semvO4wo";
 const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
