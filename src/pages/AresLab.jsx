@@ -1351,7 +1351,18 @@ export default function App() {
   const CompTab = ({ name, prof, onSave, isMobile }) => {
     const [nc, setNc] = useState({ date:"", evento:"", categoria:"", resultado:"", notas:"" });
     const comps = prof.competiciones || [];
-    const addComp = () => { if (!nc.date||!nc.evento) return; onSave({ competiciones:[...comps,nc] }); setNc({ date:"", evento:"", categoria:"", resultado:"", notas:"" }); };
+    const addComp = async () => {
+      if (!nc.date||!nc.evento) return;
+      onSave({ competiciones:[...comps,nc] });
+      try {
+        await supabase.from("athlete_profiles").upsert({ name }, { onConflict: "name" });
+        await supabase.from("athlete_competitions").insert({
+          athlete_name: name, evento: nc.evento, fecha: nc.date,
+          rival: nc.categoria||null, resultado: nc.resultado||null, notas: nc.notas||null,
+        });
+      } catch (e) { console.error("Error saving competition:", e); }
+      setNc({ date:"", evento:"", categoria:"", resultado:"", notas:"" });
+    };
     const today = new Date();
     const upcoming = comps.filter(c=>new Date(c.date)>=today).sort((a,b)=>new Date(a.date)-new Date(b.date));
     const past = comps.filter(c=>new Date(c.date)<today).sort((a,b)=>new Date(b.date)-new Date(a.date));
