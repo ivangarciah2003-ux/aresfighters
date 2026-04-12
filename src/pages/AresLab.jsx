@@ -700,7 +700,7 @@ export default function App() {
     const sem = semaforo(todayUA);
     const prio = hero ? HERO_DATA[hero]?.prio : null;
 
-    const tabs = [["overview","RESUMEN"],["carga","CARGA"],["acwr","ACWR"],["tests","TESTS"],["comp","COMPETICIÓN"],["ia","IA 🤖"]];
+    const tabs = [["overview","RESUMEN"],["carga","CARGA"],["acwr","ACWR"],["tests","TESTS"],["atr","ATR"],["comp","COMPETICIÓN"],["ia","IA 🤖"]];
 
     return (
       <div>
