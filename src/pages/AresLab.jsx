@@ -972,43 +972,52 @@ export default function App() {
 
   // ── TESTS TAB ──
   const TestsTab = ({ name, prof, onSave, isMobile }) => {
-    const [nt, setNt] = useState({ date:"", cmj:"", sj:"", fr:"", rsi:"", w1:"", w2:"", pesoMuerto:"", pressBanca:"", dominadaLastrada:"", sentadillaBulgara:"", colgarse:"", notas:"" });
+    const [nt, setNt] = useState({ date:"", cmj:"", sj:"", rsi:"", peso:"", w1:"", w2:"",
+      pesoMuertoKg:"", pesoMuertoReps:"", pressBancaKg:"", pressBancaReps:"",
+      dominadaLastradaKg:"", dominadaLastradaReps:"", sentadillaBulgaraKg:"", sentadillaBulgaraReps:"",
+      colgarseSegs:"", notas:"" });
     const tests = prof.tests || [];
+
+    // Auto-calculate 1RM and FR
+    const pm1RM = calc1RM(nt.pesoMuertoKg, nt.pesoMuertoReps);
+    const pb1RM = calc1RM(nt.pressBancaKg, nt.pressBancaReps);
+    const dl1RM = calc1RM(nt.dominadaLastradaKg, nt.dominadaLastradaReps);
+    const sb1RM = calc1RM(nt.sentadillaBulgaraKg, nt.sentadillaBulgaraReps);
+    // FR = best lower body 1RM / bodyweight (use peso muerto or sent. búlgara)
+    const best1RM = Math.max(pm1RM||0, sb1RM||0);
+    const autoFR = calcFR(best1RM, nt.peso);
 
     const addTest = () => {
       if (!nt.date) return;
-      const hero = clasificarHero(nt.fr, nt.cmj);
+      const fr = autoFR || nt.fr;
+      const hero = clasificarHero(fr, nt.cmj);
       const vehicle = clasificarVehicle(nt.w1, nt.w2);
       const wingateStats = calcWingateStats(nt.w1, nt.w2);
       const fi = wingateStats ? wingateStats.fi : "";
+      const testData = {
+        ...nt, fi, hero, vehicle, fr,
+        pm1RM, pb1RM, dl1RM, sb1RM,
+      };
       onSave({
-        tests:[...tests,{...nt, fi, hero, vehicle}],
-        hero, vehicle, fr:nt.fr, cmj:nt.cmj, rsi:nt.rsi,
+        tests:[...tests, testData],
+        hero, vehicle, fr, cmj:nt.cmj, rsi:nt.rsi, peso:nt.peso,
         w1:nt.w1, w2:nt.w2, fi,
-        pesoMuerto:nt.pesoMuerto, pressBanca:nt.pressBanca,
-        dominadaLastrada:nt.dominadaLastrada, sentadillaBulgara:nt.sentadillaBulgara,
-        colgarse:nt.colgarse
+        pesoMuerto:pm1RM, pressBanca:pb1RM,
+        dominadaLastrada:dl1RM, sentadillaBulgara:sb1RM,
+        colgarse:nt.colgarseSegs,
       });
-      setNt({ date:"", cmj:"", sj:"", fr:"", rsi:"", w1:"", w2:"", pesoMuerto:"", pressBanca:"", dominadaLastrada:"", sentadillaBulgara:"", colgarse:"", notas:"" });
+      setNt({ date:"", cmj:"", sj:"", rsi:"", peso:"", w1:"", w2:"",
+        pesoMuertoKg:"", pesoMuertoReps:"", pressBancaKg:"", pressBancaReps:"",
+        dominadaLastradaKg:"", dominadaLastradaReps:"", sentadillaBulgaraKg:"", sentadillaBulgaraReps:"",
+        colgarseSegs:"", notas:"" });
     };
 
-    const testFields = [
-      ["date","Fecha","date"],
-      ["cmj","CMJ (cm)","number"],
-      ["sj","SJ (cm)","number"],
-      ["rsi","RSI","number"],
-      ["fr","Fuerza Rel. (xBW)","number"],
-      ["w1","Sprint 1 (W/kg)","number"],
-      ["w2","Sprint 2 (W/kg)","number"],
-    ];
-
-    const strengthFields = [
-      ["pesoMuerto","Peso Muerto (kg)","number"],
-      ["pressBanca","Press Banca (kg)","number"],
-      ["dominadaLastrada","Dominada Lastrada (kg)","number"],
-      ["sentadillaBulgara","Sent. Búlgara (kg×2)","number"],
-      ["colgarse","Colgarse Barra (seg)","number"],
-    ];
+    const renderField = (k, l, t="number") => (
+      <div key={k}>
+        <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{l}</label>
+        <input type={t} value={nt[k]} onChange={e=>setNt(p=>({...p,[k]:e.target.value}))} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'Inter',sans-serif", boxSizing:"border-box", outline:"none" }}/>
+      </div>
+    );
 
     return (
       <div>
@@ -1016,47 +1025,74 @@ export default function App() {
         <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px", marginBottom:"16px" }}>
           <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"14px", textTransform:"uppercase" }}>Nuevo Test</div>
 
-          <div style={{ fontSize:"10px", letterSpacing:"2px", color:C.gold, textTransform:"uppercase", marginBottom:"8px" }}>Rendimiento</div>
+          <div style={{ fontSize:"10px", letterSpacing:"2px", color:C.gold, textTransform:"uppercase", marginBottom:"8px" }}>Datos Básicos</div>
           <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)", gap:"10px", marginBottom:"16px" }}>
-            {testFields.map(([k,l,t])=>(
-              <div key={k}>
-                <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{l}</label>
-                <input type={t} value={nt[k]} onChange={e=>setNt(p=>({...p,[k]:e.target.value}))} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'Inter',sans-serif", boxSizing:"border-box", outline:"none" }}/>
-              </div>
-            ))}
+            {renderField("date","Fecha","date")}
+            {renderField("peso","Peso Corporal (kg)")}
+            {renderField("cmj","CMJ (cm)")}
+            {renderField("sj","SJ (cm)")}
+            {renderField("rsi","RSI")}
           </div>
 
-          <div style={{ fontSize:"10px", letterSpacing:"2px", color:C.gold, textTransform:"uppercase", marginBottom:"8px" }}>Fuerza</div>
-          <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)", gap:"10px", marginBottom:"16px" }}>
-            {strengthFields.map(([k,l,t])=>(
-              <div key={k}>
-                <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{l}</label>
-                <input type={t} value={nt[k]} onChange={e=>setNt(p=>({...p,[k]:e.target.value}))} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'Inter',sans-serif", boxSizing:"border-box", outline:"none" }}/>
-              </div>
-            ))}
+          <div style={{ fontSize:"10px", letterSpacing:"2px", color:C.gold, textTransform:"uppercase", marginBottom:"8px" }}>Doble Wingate</div>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)", gap:"10px", marginBottom:"16px" }}>
+            {renderField("w1","Sprint 1 (W/kg)")}
+            {renderField("w2","Sprint 2 (W/kg)")}
           </div>
+
+          <div style={{ fontSize:"10px", letterSpacing:"2px", color:C.gold, textTransform:"uppercase", marginBottom:"8px" }}>Fuerza — Kg × Reps → 1RM Auto</div>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)", gap:"10px", marginBottom:"8px" }}>
+            {renderField("pesoMuertoKg","P. Muerto (kg)")}
+            {renderField("pesoMuertoReps","P. Muerto (reps)")}
+            {renderField("pressBancaKg","Banca (kg)")}
+            {renderField("pressBancaReps","Banca (reps)")}
+            {renderField("dominadaLastradaKg","Dom. Lastr. (kg)")}
+            {renderField("dominadaLastradaReps","Dom. Lastr. (reps)")}
+            {renderField("sentadillaBulgaraKg","S. Búlg. (kg×2)")}
+            {renderField("sentadillaBulgaraReps","S. Búlg. (reps)")}
+            {renderField("colgarseSegs","Colgarse Barra (seg)")}
+          </div>
+
+          {/* Auto 1RM display */}
+          {(pm1RM || pb1RM || dl1RM || sb1RM) && (
+            <div style={{ background:C.surface, border:`1px solid ${C.border}`, padding:"12px 16px", marginBottom:"12px" }}>
+              <div style={{ fontSize:"10px", letterSpacing:"2px", color:C.gold, marginBottom:"8px" }}>1RM ESTIMADO (BRZYCKI)</div>
+              <div style={{ display:"flex", gap:"16px", flexWrap:"wrap", fontSize:"13px" }}>
+                {pm1RM && <span style={{color:C.text}}>P.Muerto: <strong style={{color:C.gold}}>{pm1RM}kg</strong></span>}
+                {pb1RM && <span style={{color:C.text}}>Banca: <strong style={{color:C.gold}}>{pb1RM}kg</strong></span>}
+                {dl1RM && <span style={{color:C.text}}>Dom.Last: <strong style={{color:C.gold}}>{dl1RM}kg</strong></span>}
+                {sb1RM && <span style={{color:C.text}}>S.Búlg: <strong style={{color:C.gold}}>{sb1RM}kg</strong></span>}
+              </div>
+              {autoFR && (
+                <div style={{ marginTop:"8px", fontSize:"13px", color:C.text }}>
+                  Fuerza Relativa Auto: <strong style={{color:C.gold}}>{autoFR} × BW</strong>
+                  <span style={{ fontSize:"11px", color:C.muted, marginLeft:"8px" }}>(mejor 1RM tren inf. / peso corporal)</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Live preview */}
+          {(() => {
+            const fr = autoFR;
+            const h = clasificarHero(fr, nt.cmj);
+            const v = clasificarVehicle(nt.w1, nt.w2);
+            const ws = calcWingateStats(nt.w1, nt.w2);
+            return (h||v) ? (
+              <div style={{ padding:"12px", background:C.surface, border:`1px solid ${C.border}`, display:"flex", gap:"8px", flexWrap:"wrap", alignItems:"center", marginBottom:"12px" }}>
+                <span style={{ fontSize:"10px", letterSpacing:"2px", color:C.muted }}>PREVIEW:</span>
+                {h && <Badge label={`${HERO_DATA[h]?.icon} ${h}`} color={HERO_DATA[h]?.color||C.muted} small />}
+                {v && <Badge label={`${VEHICLE_DATA[v]?.icon} ${v}`} color={VEHICLE_DATA[v]?.color||C.muted} small />}
+                {ws && <span style={{ fontSize:"11px", color:C.textDim }}>Ratio: {ws.ratioPercent}% · FI: {ws.fi}%</span>}
+                {nt.rsi && <span style={{ fontSize:"11px", color:C.cyan }}>RSI: {nt.rsi}</span>}
+              </div>
+            ) : null;
+          })()}
 
           <div style={{ marginBottom:"12px" }}>
             <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>Notas</label>
-            <input type="text" value={nt.notas} onChange={e=>setNt(p=>({...p,notas:e.target.value}))} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'Inter',sans-serif", boxSizing:"border-box", outline:"none" }}/>
+            <input type="text" value={nt.notas} onChange={e=>setNt(p=>({...p,notas:e.target.value}))} placeholder="Observaciones..." style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'Inter',sans-serif", boxSizing:"border-box", outline:"none" }}/>
           </div>
-
-          {/* Live classification preview */}
-          {(nt.fr || nt.cmj || nt.w1) && (() => {
-            const h = clasificarHero(nt.fr, nt.cmj);
-            const v = clasificarVehicle(nt.w1, nt.w2);
-            const ws = calcWingateStats(nt.w1, nt.w2);
-            return (
-              <div style={{ padding:"12px 16px", background:C.surface, border:`1px solid ${C.border}`, marginBottom:"12px" }}>
-                <div style={{ display:"flex", gap:"8px", flexWrap:"wrap", alignItems:"center" }}>
-                  <span style={{ fontSize:"11px", color:C.muted, letterSpacing:"2px" }}>CLASIFICACIÓN:</span>
-                  {h && <Badge label={`${HERO_DATA[h]?.icon} ${h}`} color={HERO_DATA[h]?.color||C.muted} small />}
-                  {v && <Badge label={`${VEHICLE_DATA[v]?.icon} ${v}`} color={VEHICLE_DATA[v]?.color||C.muted} small />}
-                  {ws && <span style={{ fontSize:"11px", color:C.textDim }}>Ratio: {ws.ratioPercent}% · FI: {ws.fi}%</span>}
-                </div>
-              </div>
-            );
-          })()}
 
           <button onClick={addTest} style={{ padding:"9px 22px", background:C.gold, border:"none", color:"#000", cursor:"pointer", fontSize:"11px", letterSpacing:"2px", fontFamily:"inherit", fontWeight:"700" }}>+ GUARDAR TEST</button>
         </div>
@@ -1076,7 +1112,7 @@ export default function App() {
               <div style={{ overflowX:"auto" }}>
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"11px" }}>
                   <thead><tr style={{ borderBottom:`1px solid ${C.border}` }}>
-                    {["Fecha","CMJ","SJ","RSI","F.Rel","S1","S2","FI%","P.Muerto","Banca","Dom.Last","S.Búlg","Barra","Perfil","Vehículo"].map(h=>
+                    {["Fecha","CMJ","SJ","RSI","FR","S1","S2","FI%","PM 1RM","PB 1RM","DL 1RM","SB 1RM","Barra(s)","Perfil","Vehículo"].map(h=>
                       <th key={h} style={{ padding:"6px 7px", textAlign:"left", color:C.muted, fontSize:"9px", letterSpacing:"1px", textTransform:"uppercase" }}>{h}</th>
                     )}
                   </tr></thead>
@@ -1084,9 +1120,14 @@ export default function App() {
                     {tests.map((t,i)=>(
                       <tr key={i} style={{ borderBottom:`1px solid ${C.border}20` }}>
                         <td style={{ padding:"6px 7px", color:C.textDim }}>{t.date}</td>
-                        {["cmj","sj","rsi","fr","w1","w2","fi","pesoMuerto","pressBanca","dominadaLastrada","sentadillaBulgara","colgarse"].map(k=>
+                        {["cmj","sj","rsi","fr","w1","w2","fi"].map(k=>
                           <td key={k} style={{ padding:"6px 7px", color:C.text }}>{t[k]||"–"}</td>
                         )}
+                        <td style={{ padding:"6px 7px", color:C.text }}>{t.pm1RM||t.pesoMuerto||"–"}</td>
+                        <td style={{ padding:"6px 7px", color:C.text }}>{t.pb1RM||t.pressBanca||"–"}</td>
+                        <td style={{ padding:"6px 7px", color:C.text }}>{t.dl1RM||t.dominadaLastrada||"–"}</td>
+                        <td style={{ padding:"6px 7px", color:C.text }}>{t.sb1RM||t.sentadillaBulgara||"–"}</td>
+                        <td style={{ padding:"6px 7px", color:C.text }}>{t.colgarseSegs||t.colgarse||"–"}</td>
                         <td style={{ padding:"6px 7px" }}>{t.hero?<Badge label={t.hero} color={HERO_DATA[t.hero]?.color||C.muted} small />:"–"}</td>
                         <td style={{ padding:"6px 7px" }}>{t.vehicle?<Badge label={`${VEHICLE_DATA[t.vehicle]?.icon} ${t.vehicle}`} color={VEHICLE_DATA[t.vehicle]?.color||C.muted} small />:"–"}</td>
                       </tr>
@@ -1101,7 +1142,7 @@ export default function App() {
               <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px" }}>
                 <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"14px", textTransform:"uppercase" }}>Evolución</div>
                 <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr 1fr", gap:"12px" }}>
-                  {[["CMJ","cmj",C.gold],["SJ","sj",C.goldBright],["RSI","rsi",C.cyan],["F.Rel","fr",C.red],["P.Muerto","pesoMuerto",C.green],["Banca","pressBanca",C.yellow],["Dom.Last","dominadaLastrada",C.cyan],["S.Búlg","sentadillaBulgara",C.gold]].map(([label,key,color])=>{
+                  {[["CMJ","cmj",C.gold],["SJ","sj",C.goldBright],["RSI","rsi",C.cyan],["F.Rel","fr",C.red],["PM 1RM","pm1RM",C.green],["PB 1RM","pb1RM",C.yellow],["DL 1RM","dl1RM",C.cyan],["SB 1RM","sb1RM",C.gold]].map(([label,key,color])=>{
                     const vals = tests.map(t=>parseFloat(t[key])).filter(v=>!isNaN(v));
                     if (vals.length < 2) return null;
                     const delta = vals[vals.length-1] - vals[0];
@@ -1121,6 +1162,95 @@ export default function App() {
             )}
           </>
         )}
+      </div>
+    );
+  };
+
+  // ── ATR TAB ──
+  const ATRTab = ({ name, prof, isMobile }) => {
+    const [selectedPhase, setSelectedPhase] = useState(prof.fase && ATR_DATA[prof.fase] ? prof.fase : "Acumulación");
+    const hero = prof.hero || clasificarHero(prof.fr, prof.cmj);
+    const vehicle = prof.vehicle || clasificarVehicle(prof.w1, prof.w2);
+    const phase = ATR_DATA[selectedPhase];
+
+    const getProfileTip = () => {
+      if (!hero && !vehicle) return "Completa los tests para recibir recomendaciones personalizadas.";
+      const tips = [];
+      if (hero === "Hulk") tips.push("Priorizar Fast Force y velocidad. El atleta ya tiene fuerza.");
+      if (hero === "Flash") tips.push("Priorizar High Force. Necesita más techo de producción de fuerza.");
+      if (hero === "Viuda Negra") tips.push("Construir base: Slow Force + High Force antes de trabajar velocidad.");
+      if (hero === "Superman") tips.push("Mantenimiento integrado. Equilibrar estímulos.");
+      if (vehicle === "Lancha") tips.push("Mejorar repeatability y conditioning. No solo potencia.");
+      if (vehicle === "Barco") tips.push("Mejorar potencia de salida. Trabajo explosivo prioritario.");
+      if (vehicle === "Moto") tips.push("Trabajo global: potencia + conditioning desde la base.");
+      if (vehicle === "Velero") tips.push("Perfil energético ideal. Mantener y potenciar.");
+      return tips.join(" ");
+    };
+
+    return (
+      <div>
+        {/* Phase selector */}
+        <div style={{ display:"flex", gap:"8px", marginBottom:"20px", flexWrap:"wrap" }}>
+          {Object.entries(ATR_DATA).map(([key, data]) => (
+            <button key={key} onClick={()=>setSelectedPhase(key)} style={{
+              padding:"10px 20px", cursor:"pointer", fontSize:"12px", letterSpacing:"2px",
+              fontFamily:"inherit", fontWeight: selectedPhase===key?"700":"400",
+              background: selectedPhase===key ? data.color+"22" : "transparent",
+              border: `2px solid ${selectedPhase===key ? data.color : C.border}`,
+              color: selectedPhase===key ? data.color : C.muted,
+              transition:"all 0.2s",
+            }}>
+              {data.icon} {key.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        {/* Phase header */}
+        <div style={{ background:C.card, border:`1px solid ${phase.color}44`, borderLeft:`4px solid ${phase.color}`, padding:"20px", marginBottom:"16px" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"12px" }}>
+            <div style={{ fontSize:"32px" }}>{phase.icon}</div>
+            <div>
+              <div style={{ fontSize:"20px", fontWeight:"700", color:phase.color }}>{selectedPhase}</div>
+              <div style={{ fontSize:"13px", color:C.textDim }}>{phase.tagline}</div>
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:"8px", flexWrap:"wrap", marginBottom:"10px" }}>
+            {phase.dominante.map(d => <Badge key={d} label={d} color={phase.color} small />)}
+          </div>
+          <div style={{ fontSize:"12px", color:C.text, padding:"10px 14px", background:C.surface, borderLeft:`3px solid ${phase.color}` }}>
+            <strong>Objetivo:</strong> {phase.objetivo}
+          </div>
+        </div>
+
+        {/* Profile-specific recommendation */}
+        {(hero || vehicle) && (
+          <div style={{ background:C.card, border:`1px solid ${C.gold}44`, padding:"16px", marginBottom:"16px" }}>
+            <div style={{ fontSize:"10px", letterSpacing:"3px", color:C.gold, marginBottom:"8px", textTransform:"uppercase" }}>Recomendación según perfil</div>
+            <div style={{ display:"flex", gap:"8px", marginBottom:"10px", flexWrap:"wrap" }}>
+              {hero && <Badge label={`${HERO_DATA[hero]?.icon} ${hero}`} color={HERO_DATA[hero]?.color} small />}
+              {vehicle && <Badge label={`${VEHICLE_DATA[vehicle]?.icon} ${vehicle}`} color={VEHICLE_DATA[vehicle]?.color} small />}
+            </div>
+            <div style={{ fontSize:"12px", color:C.textDim, lineHeight:"1.6" }}>{getProfileTip()}</div>
+            <div style={{ marginTop:"10px", fontSize:"11px", color:C.gold, fontStyle:"italic" }}>
+              "El bloque determina qué entrenas. El perfil determina cómo lo entrenas."
+            </div>
+          </div>
+        )}
+
+        {/* Exercise blocks */}
+        <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:"12px" }}>
+          {Object.entries(phase.bloques).map(([bloqueKey, bloque]) => (
+            <div key={bloqueKey} style={{ background:C.card, border:`1px solid ${C.border}`, padding:"16px" }}>
+              <div style={{ fontSize:"11px", letterSpacing:"3px", color:phase.color, marginBottom:"6px", textTransform:"uppercase" }}>{bloqueKey}</div>
+              <div style={{ fontSize:"11px", color:C.muted, marginBottom:"10px" }}>{bloque.desc}</div>
+              {bloque.ejercicios.map((ej, i) => (
+                <div key={i} style={{ fontSize:"12px", color:C.text, padding:"4px 0 4px 12px", borderLeft:`2px solid ${phase.color}33`, marginBottom:"2px" }}>
+                  › {ej}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
