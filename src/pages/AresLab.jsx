@@ -616,37 +616,124 @@ export default function App() {
   const exportPDF = (name) => {
     const rows = athleteRows[name] || [];
     const prof = profiles[name] || {};
+    const tests = prof.tests || [];
     const hero = prof.hero || clasificarHero(prof.fr, prof.cmj);
     const vehicle = prof.vehicle || clasificarVehicle(prof.w1, prof.w2);
+    const hInfo = HERO_DATA[hero];
+    const vInfo = VEHICLE_DATA[vehicle];
     const acwr = calcACWR(rows);
     const last7 = rows.slice(-7);
     const avgW = last7.map(r=>parseFloat(calcWellness(r))||0).filter(v=>v>0);
     const avgWellness = avgW.length ? (avgW.reduce((a,b)=>a+b,0)/avgW.length).toFixed(1) : "–";
     const totalUA = rows.reduce((s,r)=>s+calcUA(r["Minutos totales entrenados hoy"],r["RPE del día (Esfuerzo)"]),0);
     const prio = hero ? HERO_DATA[hero]?.prio : null;
+    const ws = calcWingateStats(prof.w1, prof.w2);
+    const lastTest = tests[tests.length-1];
 
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Informe ${name}</title>
-    <style>body{font-family:sans-serif;background:#fff;color:#111;padding:32px;max-width:800px;margin:0 auto}
-    h1{font-size:24px;letter-spacing:4px;color:#d4a843;margin-bottom:4px}
-    h2{font-size:13px;letter-spacing:3px;color:#888;text-transform:uppercase;margin:20px 0 8px;border-bottom:1px solid #eee;padding-bottom:4px}
-    .grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px}
-    .stat{background:#f8f8f8;padding:12px;border-left:3px solid #d4a843}
-    .stat-label{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:2px}
-    .stat-val{font-size:20px;font-weight:700;color:#111}
-    .badge{display:inline-block;padding:3px 10px;border:1px solid;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-right:6px}
-    table{width:100%;border-collapse:collapse;font-size:11px}
-    th{background:#f0f0f0;padding:6px 8px;text-align:left;font-size:10px;letter-spacing:1px;text-transform:uppercase}
-    td{padding:6px 8px;border-bottom:1px solid #f0f0f0}
-    .prio{padding:10px 14px;border-left:3px solid #d4a843;background:#fffbf0;margin:4px 0;font-size:12px}
-    @media print{body{padding:16px}}</style></head><body>
-    <h1>ARES LAB</h1>
-    <div style="font-size:13px;color:#888;margin-bottom:20px">Informe de atleta — ${name} — ${new Date().toLocaleDateString("es-ES")}</div>
-    <div class="grid">
-      <div class="stat"><div class="stat-label">Total Registros</div><div class="stat-val">${rows.length}</div></div>
-      <div class="stat"><div class="stat-label">UA Total</div><div class="stat-val">${totalUA.toLocaleString()}</div></div>
-      <div class="stat"><div class="stat-label">Wellness Med.</div><div class="stat-val">${avgWellness}/5</div></div>
-      <div class="stat"><div class="stat-label">ACWR</div><div class="stat-val">${acwr.ratio || "–"}</div></div>
+    // Build recommendations
+    const recs = [];
+    if (hero === "Hulk") recs.push("Tu perfil neuromuscular indica un exceso de fuerza relativa frente a velocidad. PRIORIDAD: Fast Force — velocidad, potencia reactiva, pliometría de alta intensidad. El techo de fuerza ya está alto; ahora hay que expresarla rápido.");
+    if (hero === "Flash") recs.push("Tu perfil muestra gran capacidad reactiva pero falta de base de fuerza. PRIORIDAD: High Force — fuerza máxima, excéntrico pesado, isométrico en rangos articulares clave. Necesitas un techo más alto para que la velocidad tenga impacto real.");
+    if (hero === "Viuda Negra") recs.push("Tu perfil indica que aún no tienes base suficiente ni en fuerza ni en velocidad. PRIORIDAD: Slow Force + High Force primero. Construir estructura, control motor y tolerancia al volumen antes de buscar potencia.");
+    if (hero === "Superman") recs.push("Perfil neuromuscular equilibrado y competitivo. PRIORIDAD: Mantenimiento integrado — alternar estímulos de fuerza y velocidad sin descuidar ninguno. El riesgo aquí es acomodarse.");
+    if (vehicle === "Lancha") recs.push("Tu sistema energético produce potencia alta pero no la mantiene. PRIORIDAD: Mejorar repeatability — intervalos de densidad progresiva, trabajo glucolítico controlado, condicionamiento específico. Sin esto, los últimos rounds serán tu punto débil.");
+    if (vehicle === "Barco") recs.push("Tu sistema energético aguanta bien pero le falta potencia inicial. PRIORIDAD: Mejorar explosividad — sprints cortos alácticos, contrastes, activación neural. Necesitas más impacto en el primer contacto.");
+    if (vehicle === "Moto") recs.push("Tu sistema energético necesita trabajo global: ni produces potencia suficiente ni la mantienes. PRIORIDAD: Base aeróbica + potencia progresiva. Empezar con Long Force y escalar hacia Fast Force a medida que mejore la base.");
+    if (vehicle === "Velero") recs.push("Tu sistema energético es ideal: explosivo y consistente. PRIORIDAD: Mantener y potenciar — no destruir este perfil con volumen excesivo. Microdosis de velocidad y aláctico para mantener la chispa.");
+    if (acwr.ratio && parseFloat(acwr.ratio) > 1.3) recs.push("⚠ ALERTA: Tu ratio ACWR está por encima de 1.3. Esto indica un pico de carga aguda que puede llevar a lesión. Reducir volumen esta semana y priorizar recuperación activa.");
+    if (acwr.ratio && parseFloat(acwr.ratio) < 0.8) recs.push("Tu ratio ACWR está bajo (< 0.8). Puedes incrementar la carga de forma segura esta semana. Buen momento para un estímulo más intenso.");
+
+    const testsHtml = tests.length > 0 ? `
+      <h2>📊 Historial de Tests</h2>
+      <table>
+        <tr><th>Fecha</th><th>CMJ</th><th>SJ</th><th>RSI</th><th>FR</th><th>S1</th><th>S2</th><th>FI%</th><th>PM 1RM</th><th>PB 1RM</th><th>DL 1RM</th><th>SB 1RM</th><th>Barra</th></tr>
+        ${tests.map(t=>`<tr><td>${t.date||"–"}</td><td>${t.cmj||"–"}</td><td>${t.sj||"–"}</td><td>${t.rsi||"–"}</td><td>${t.fr||"–"}</td><td>${t.w1||"–"}</td><td>${t.w2||"–"}</td><td>${t.fi||"–"}</td><td>${t.pm1RM||"–"}</td><td>${t.pb1RM||"–"}</td><td>${t.dl1RM||"–"}</td><td>${t.sb1RM||"–"}</td><td>${t.colgarseSegs||t.colgarse||"–"}</td></tr>`).join("")}
+      </table>` : "";
+
+    const compsHtml = (prof.competiciones||[]).length > 0 ? `
+      <h2>🥊 Competiciones</h2>
+      <table>
+        <tr><th>Fecha</th><th>Evento</th><th>Categoría</th><th>Resultado</th></tr>
+        ${(prof.competiciones||[]).map(c=>`<tr><td>${c.date||"–"}</td><td>${c.evento||"–"}</td><td>${c.categoria||"–"}</td><td>${c.resultado||"–"}</td></tr>`).join("")}
+      </table>` : "";
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Informe ARES — ${name}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:'Helvetica Neue',Arial,sans-serif;background:#fff;color:#1a1a1a;padding:40px;max-width:820px;margin:0 auto;line-height:1.5}
+      .header{border-bottom:3px solid #d4a843;padding-bottom:16px;margin-bottom:28px;display:flex;justify-content:space-between;align-items:flex-end}
+      .header h1{font-size:28px;letter-spacing:6px;color:#d4a843;font-weight:800}
+      .header .sub{font-size:12px;color:#888;letter-spacing:2px;text-transform:uppercase}
+      h2{font-size:13px;letter-spacing:3px;color:#d4a843;text-transform:uppercase;margin:28px 0 12px;border-bottom:1px solid #eee;padding-bottom:6px}
+      .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+      .stat{background:#f9f7f2;padding:14px;border-left:3px solid #d4a843}
+      .stat-label{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px}
+      .stat-val{font-size:22px;font-weight:700;color:#1a1a1a}
+      .stat-sub{font-size:10px;color:#999;margin-top:2px}
+      .profile-box{background:#faf8f3;border:1px solid #e8e0d0;border-left:4px solid #d4a843;padding:18px;margin-bottom:12px}
+      .profile-box .title{font-size:16px;font-weight:700;margin-bottom:4px}
+      .profile-box .desc{font-size:12px;color:#666;line-height:1.6}
+      .rec{background:#fffbf0;border-left:4px solid #d4a843;padding:14px 18px;margin-bottom:8px;font-size:12px;color:#333;line-height:1.7}
+      .rec strong{color:#d4a843}
+      table{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:16px}
+      th{background:#f0ece4;padding:7px 8px;text-align:left;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#888;border-bottom:2px solid #d4a843}
+      td{padding:7px 8px;border-bottom:1px solid #f0f0f0}
+      .footer{margin-top:36px;padding-top:14px;border-top:2px solid #d4a843;text-align:center;font-size:10px;color:#bbb;letter-spacing:3px}
+      .badge{display:inline-block;padding:3px 10px;border:1px solid;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-right:6px;border-radius:2px}
+      @media print{body{padding:20px;font-size:11px}.header h1{font-size:22px}}
+    </style></head><body>
+    <div class="header">
+      <div>
+        <h1>ARES LAB</h1>
+        <div class="sub">Informe de rendimiento</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:16px;font-weight:700;color:#1a1a1a">${name}</div>
+        <div class="sub">${prof.deporte||"MMA"} · ${prof.fase||"–"} · ${new Date().toLocaleDateString("es-ES",{day:"2-digit",month:"long",year:"numeric"})}</div>
+      </div>
     </div>
+
+    <div class="grid">
+      <div class="stat"><div class="stat-label">Registros</div><div class="stat-val">${rows.length}</div></div>
+      <div class="stat"><div class="stat-label">UA Total</div><div class="stat-val">${totalUA.toLocaleString()}</div></div>
+      <div class="stat"><div class="stat-label">Wellness</div><div class="stat-val">${avgWellness}/5</div></div>
+      <div class="stat"><div class="stat-label">ACWR</div><div class="stat-val">${acwr.ratio||"–"}</div><div class="stat-sub">${acwr.ratio?(parseFloat(acwr.ratio)>1.3?"⚠ Riesgo":parseFloat(acwr.ratio)<0.8?"↓ Bajo":"✓ Óptimo"):"Min. 7d"}</div></div>
+    </div>
+
+    <h2>${hero ? hInfo?.icon+" " : ""}Perfil Neuromuscular</h2>
+    ${hero ? `<div class="profile-box">
+      <div class="title" style="color:${hInfo?.color||"#d4a843"}">${hero}</div>
+      <div class="desc">${hInfo?.desc||""}</div>
+      ${prof.fr ? `<div style="margin-top:8px;font-size:11px;color:#888">FR: <strong style="color:#1a1a1a">${prof.fr} ×BW</strong> · CMJ: <strong style="color:#1a1a1a">${prof.cmj||"–"} cm</strong> · SJ: <strong style="color:#1a1a1a">${prof.sj||"–"} cm</strong> · RSI: <strong style="color:#1a1a1a">${prof.rsi||"–"}</strong></div>` : ""}
+      ${prio ? `<div style="margin-top:10px;font-size:11px"><strong>Dominante:</strong> ${prio.dom} · <strong>Mantenimiento:</strong> ${prio.mant} · <strong>Soporte:</strong> ${prio.sop}</div>` : ""}
+    </div>` : `<div style="color:#999;font-size:12px">Sin datos de tests neuromusculares</div>`}
+
+    <h2>${vehicle ? vInfo?.icon+" " : ""}Perfil Energético</h2>
+    ${vehicle && ws ? `<div class="profile-box">
+      <div class="title" style="color:${vInfo?.color||"#d4a843"}">${vehicle}</div>
+      <div class="desc">${vInfo?.desc||""}</div>
+      <div style="margin-top:8px;font-size:11px;color:#888">Sprint 1: <strong style="color:#1a1a1a">${prof.w1} W/kg</strong> · Sprint 2: <strong style="color:#1a1a1a">${prof.w2} W/kg</strong> · Ratio: <strong style="color:#1a1a1a">${ws.ratioPercent}%</strong> · FI: <strong style="color:#1a1a1a">${ws.fi}%</strong></div>
+      <div style="margin-top:6px;font-size:11px;color:#666">${getVehicleInterpretation(vehicle)}</div>
+    </div>` : `<div style="color:#999;font-size:12px">Sin datos de Doble Wingate</div>`}
+
+    ${(prof.pesoMuerto||prof.pressBanca||prof.dominadaLastrada||prof.sentadillaBulgara||prof.colgarse) ? `
+    <h2>🏋️ Tests de Fuerza</h2>
+    <div class="grid" style="grid-template-columns:repeat(5,1fr)">
+      ${prof.pesoMuerto ? `<div class="stat"><div class="stat-label">P. Muerto 1RM</div><div class="stat-val">${prof.pesoMuerto}kg</div></div>` : ""}
+      ${prof.pressBanca ? `<div class="stat"><div class="stat-label">Press Banca 1RM</div><div class="stat-val">${prof.pressBanca}kg</div></div>` : ""}
+      ${prof.dominadaLastrada ? `<div class="stat"><div class="stat-label">Dom. Lastrada 1RM</div><div class="stat-val">${prof.dominadaLastrada}kg</div></div>` : ""}
+      ${prof.sentadillaBulgara ? `<div class="stat"><div class="stat-label">S. Búlgara 1RM</div><div class="stat-val">${prof.sentadillaBulgara}kg</div></div>` : ""}
+      ${prof.colgarse ? `<div class="stat"><div class="stat-label">Colgarse Barra</div><div class="stat-val">${prof.colgarse}s</div></div>` : ""}
+    </div>` : ""}
+
+    ${recs.length > 0 ? `
+    <h2>🎯 Análisis y Recomendaciones</h2>
+    ${recs.map(r=>`<div class="rec">${r}</div>`).join("")}` : ""}
+
+    ${testsHtml}
+    ${compsHtml}
+
+    <div class="footer">ARES LAB · HUMAN ABILITY · ${new Date().getFullYear()}</div>
     <script>window.onload=()=>{window.print()}</script></body></html>`;
 
     const win = window.open("","_blank");
@@ -1294,28 +1381,6 @@ export default function App() {
             }}>
               {data.icon} {key.toUpperCase()}
             </button>
-          ))}
-          <button onClick={() => {
-            let text = "SISTEMA ATR — ARES LAB\n" + "=".repeat(50) + "\n\n";
-            Object.entries(ATR_DATA).forEach(([key, data]) => {
-              text += `${data.icon} ${key.toUpperCase()}\n`;
-              text += `Tagline: ${data.tagline}\n`;
-              text += `Dominante: ${data.dominante.join(", ")}\n`;
-              text += `Objetivo: ${data.objetivo}\n\n`;
-              Object.entries(data.bloques).forEach(([bk, bl]) => {
-                text += `  ▸ ${bk}: ${bl.desc}\n`;
-                bl.ejercicios.forEach(e => { text += `    › ${e}\n`; });
-                text += "\n";
-              });
-              text += "\n";
-            });
-            const blob = new Blob([text], { type: "text/plain" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a"); a.href = url; a.download = "ATR_ARES_LAB.txt"; a.click();
-            URL.revokeObjectURL(url);
-          }} style={{ marginLeft:"auto", padding:"8px 16px", background:"transparent", border:`1px solid ${C.gold}`, color:C.gold, cursor:"pointer", fontSize:"11px", letterSpacing:"2px", fontFamily:"inherit" }}>
-            ⬇ DESCARGAR ATR
-          </button>
         </div>
 
         {/* Phase header */}
