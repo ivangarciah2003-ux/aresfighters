@@ -64,7 +64,7 @@ const getWeekKey = (d) => { const dt=new Date(d); if(isNaN(dt)) return null; con
 
 // ACWR: Aguda (7d) / Crónica (28d)
 const calcACWR = (rows) => {
-  const sorted = rows.slice().sort((a,b)=>new Date(a["Marca temporal"])-new Date(b["Marca temporal")));
+  const sorted = rows.slice().sort((a,b)=>new Date(a["Marca temporal"])-new Date(b["Marca temporal"]));
   const now = new Date();
   const day7 = new Date(now - 7*86400000);
   const day28 = new Date(now - 28*86400000);
