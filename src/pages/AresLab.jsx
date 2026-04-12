@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import aresLogo from "@/assets/ares-logo.jpg";
 
-const SHEET_ID = "1YVVhsxu-K_1fDCAk9gd4iSgCM4swtw1CTL-B5YSknYQ";
+const SHEET_ID = "1QKD_Oxaf-a7hukGtK5o-bsRzzzZbDvvgVh7semvO4wo";
 const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
 
 // ── ARES BRAND COLORS ──
