@@ -1082,6 +1082,22 @@ export default function App() {
         dominadaLastrada:dl1RM, sentadillaBulgara:sb1RM,
         colgarse:nt.colgarseSegs,
       });
+      // Save test to DB
+      try {
+        // Ensure profile exists first
+        await supabase.from("athlete_profiles").upsert({ name }, { onConflict: "name" });
+        await supabase.from("athlete_tests").insert({
+          athlete_name: name, test_date: nt.date,
+          cmj: nt.cmj||null, sj: nt.sj||null, rsi: nt.rsi||null, peso: nt.peso||null,
+          fr: fr||null, w1: nt.w1||null, w2: nt.w2||null, fi: fi||null,
+          hero, vehicle,
+          peso_muerto_kg: nt.pesoMuertoKg||null, peso_muerto_reps: nt.pesoMuertoReps||null, peso_muerto_1rm: pm1RM||null,
+          press_banca_kg: nt.pressBancaKg||null, press_banca_reps: nt.pressBancaReps||null, press_banca_1rm: pb1RM||null,
+          dominada_lastrada_kg: nt.dominadaLastradaKg||null, dominada_lastrada_reps: nt.dominadaLastradaReps||null, dominada_lastrada_1rm: dl1RM||null,
+          sentadilla_bulgara_kg: nt.sentadillaBulgaraKg||null, sentadilla_bulgara_reps: nt.sentadillaBulgaraReps||null, sentadilla_bulgara_1rm: sb1RM||null,
+          colgarse_segs: nt.colgarseSegs||null, notas: nt.notas||null,
+        });
+      } catch (e) { console.error("Error saving test:", e); }
       setNt({ date:"", cmj:"", sj:"", rsi:"", peso:"", w1:"", w2:"",
         pesoMuertoKg:"", pesoMuertoReps:"", pressBancaKg:"", pressBancaReps:"",
         dominadaLastradaKg:"", dominadaLastradaReps:"", sentadillaBulgaraKg:"", sentadillaBulgaraReps:"",
