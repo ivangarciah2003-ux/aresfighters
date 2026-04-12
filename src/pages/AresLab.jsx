@@ -26,10 +26,17 @@ const VEHICLE_DATA = {
 };
 
 // ── UTILS ──────────────────────────────────────────────────────────────────────
+const parseGVizDate = (v) => {
+  if (typeof v === "string") {
+    const m = v.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)$/);
+    if (m) return new Date(+m[1], +m[2], +m[3], +(m[4]||0), +(m[5]||0), +(m[6]||0)).toISOString();
+  }
+  return v;
+};
 const parseGViz = (raw) => {
   const json = JSON.parse(raw.replace(/^[^(]+\(|\);?$/g, ""));
   const cols = json.table.cols.map(c => c.label);
-  return json.table.rows.map(r => Object.fromEntries(cols.map((c, i) => [c, r.c[i]?.v ?? ""])));
+  return json.table.rows.map(r => Object.fromEntries(cols.map((c, i) => [c, parseGVizDate(r.c[i]?.v) ?? ""])));
 };
 const calcUA = (min, rpe) => Math.round((parseFloat(min)||0) * (parseFloat(rpe)||0));
 const calcWellness = (row) => {
