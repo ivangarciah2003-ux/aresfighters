@@ -385,11 +385,13 @@ export default function App() {
   const [lastSync, setLastSync] = useState(null);
   const [profiles, setProfiles] = useState({});
   const [selected, setSelected] = useState(null);
-  const [mainView, setMainView] = useState("dashboard"); // dashboard | atletas | cuadrante | competiciones | athlete
+  const [mainView, setMainView] = useState("dashboard");
   const [athleteTab, setAthleteTab] = useState("overview");
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAthlete, setEditingAthlete] = useState(null);
   const printRef = useRef();
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => { const h = () => setIsMobile(window.innerWidth < 768); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
 
   const fetchData = useCallback(async () => {
     try {
