@@ -32,6 +32,59 @@ const VEHICLE_DATA = {
 
 const THRESHOLD_POTENCIA = 10; // W/kg reference
 
+// ── 1RM Calculation (Brzycki formula) ──
+const calc1RM = (kg, reps) => {
+  const k = parseFloat(kg), r = parseFloat(reps);
+  if (isNaN(k)||isNaN(r)||k<=0||r<=0) return null;
+  if (r === 1) return k;
+  return Math.round(k * (36 / (37 - r)));
+};
+const calcFR = (oneRM, bw) => {
+  const o = parseFloat(oneRM), b = parseFloat(bw);
+  if (isNaN(o)||isNaN(b)||b<=0) return null;
+  return (o / b).toFixed(2);
+};
+
+// ── ATR PROGRAMMING DATA ──
+const ATR_DATA = {
+  Acumulación: {
+    color: "#5dade2", icon: "🔵", tagline: "Construir la base",
+    dominante: ["Slow Force", "Long Force"],
+    objetivo: "Mejorar eficiencia, tolerancia al volumen, preparar tejidos",
+    bloques: {
+      Prep: { desc: "Respiración, movilidad controlada, estabilidad", ejercicios: ["Dead bug", "Bird dog", "Respiración 90/90", "Movilidad cadera/torácica", "Trabajo ocular"] },
+      "Saltos/Lanzamientos": { desc: "Baja intensidad", ejercicios: ["Pogo jumps", "Bonnie hops laterales", "Saltos en el sitio", "Lanzamientos suaves balón medicinal"] },
+      Fuerza: { desc: "Slow + High controlado + Excéntrico + Isométrico", ejercicios: ["Zercher squat", "Goblet squat", "Split squat", "RDL", "Hip thrust", "Tempo squat 3-4s (excéntrico)", "Nordic hamstring (excéntrico)", "Split squat iso hold", "Wall sit (isométrico)"] },
+      Rotación: { desc: "Anti-rotación controlada", ejercicios: ["Pallof press", "Anti-rotación cable", "Chops lentos"] },
+      "Speed/Sistemas": { desc: "Long Force (oxidativo)", ejercicios: ["Zona 2 continuo", "Aeróbico continuo", "Circuitos largos baja intensidad"] },
+    }
+  },
+  Transformación: {
+    color: "#c0392b", icon: "🔴", tagline: "Convertir fuerza en rendimiento",
+    dominante: ["High Force", "Fast Force"],
+    objetivo: "Aumentar producción de fuerza, mejorar RFD, tolerar esfuerzos tipo round",
+    bloques: {
+      Prep: { desc: "Activación neural + movilidad dinámica", ejercicios: ["Activación glúteo rápida", "Movilidad dinámica", "Priming neural"] },
+      "Saltos/Lanzamientos": { desc: "Más intensidad", ejercicios: ["CMJ", "Bounding", "Hurdle jumps", "Med ball throws explosivos"] },
+      Fuerza: { desc: "Pesada + potencia + contrastes", ejercicios: ["Front squat pesado", "Trap bar deadlift", "Step-up pesado", "Squat + jump (contraste)", "Press + lanzamiento (contraste)", "Drop jump (braking)", "Drop squat (deceleración)", "Isometric mid-thigh pull"] },
+      Rotación: { desc: "Explosiva", ejercicios: ["Lanzamientos rotacionales", "Golpes con balón", "Cable high velocity"] },
+      "Speed/Sistemas": { desc: "Glucolítico", ejercicios: ["Intervalos 20-60s", "Circuitos tipo round", "AirBike intervals"] },
+    }
+  },
+  Realización: {
+    color: "#27ae60", icon: "🟢", tagline: "Puesta a punto",
+    dominante: ["Fast Force", "ATP-PC"],
+    objetivo: "Maximizar rendimiento, reducir fatiga, peak performance",
+    bloques: {
+      Prep: { desc: "Activación rápida, baja fatiga", ejercicios: ["Activación neural breve", "Movilidad mínima necesaria"] },
+      "Saltos/Lanzamientos": { desc: "Explosivos, bajo volumen", ejercicios: ["Depth jumps", "Reactive jumps", "Throws máximos"] },
+      Fuerza: { desc: "Microdosis, 1-3 reps pesadas", ejercicios: ["1-3 reps pesadas (mantenimiento)", "Contrastes ligeros"] },
+      Rotación: { desc: "Máxima velocidad, bajo volumen", ejercicios: ["Rotaciones máxima velocidad", "Bajo volumen"] },
+      "Speed/Sistemas": { desc: "Aláctico", ejercicios: ["Sprints 5-10s", "Descansos largos (>2 min)", "Activación neural pura"] },
+    }
+  },
+};
+
 // ── UTILS ──
 const parseGVizDate = (v) => {
   if (typeof v === "string") {
