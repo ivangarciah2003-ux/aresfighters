@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import aresLogo from "@/assets/ares-logo.jpg";
+import { supabase } from "@/integrations/supabase/client";
 
 const SHEET_ID = "1QKD_Oxaf-a7hukGtK5o-bsRzzzZbDvvgVh7semvO4wo";
 const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
@@ -524,7 +525,52 @@ export default function App() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Load profiles, tests, competitions from Supabase
+  const loadFromDB = useCallback(async () => {
+    try {
+      const [profRes, testRes, compRes] = await Promise.all([
+        supabase.from("athlete_profiles").select("*"),
+        supabase.from("athlete_tests").select("*").order("test_date", { ascending: true }),
+        supabase.from("athlete_competitions").select("*"),
+      ]);
+      const dbProfiles = {};
+      (profRes.data || []).forEach(p => {
+        dbProfiles[p.name] = {
+          deporte: p.deporte, fase: p.fase, peso: p.peso, cmj: p.cmj, sj: p.sj, rsi: p.rsi, fr: p.fr,
+          w1: p.w1, w2: p.w2, fi: p.fi, hero: p.hero, vehicle: p.vehicle,
+          pesoMuerto: p.peso_muerto, pressBanca: p.press_banca,
+          dominadaLastrada: p.dominada_lastrada, sentadillaBulgara: p.sentadilla_bulgara,
+          colgarse: p.colgarse,
+          tests: [],
+          competiciones: [],
+        };
+      });
+      (testRes.data || []).forEach(t => {
+        const name = t.athlete_name;
+        if (!dbProfiles[name]) dbProfiles[name] = { tests: [], competiciones: [] };
+        dbProfiles[name].tests.push({
+          date: t.test_date, cmj: t.cmj, sj: t.sj, rsi: t.rsi, peso: t.peso, fr: t.fr,
+          w1: t.w1, w2: t.w2, fi: t.fi, hero: t.hero, vehicle: t.vehicle,
+          pesoMuertoKg: t.peso_muerto_kg, pesoMuertoReps: t.peso_muerto_reps, pm1RM: t.peso_muerto_1rm,
+          pressBancaKg: t.press_banca_kg, pressBancaReps: t.press_banca_reps, pb1RM: t.press_banca_1rm,
+          dominadaLastradaKg: t.dominada_lastrada_kg, dominadaLastradaReps: t.dominada_lastrada_reps, dl1RM: t.dominada_lastrada_1rm,
+          sentadillaBulgaraKg: t.sentadilla_bulgara_kg, sentadillaBulgaraReps: t.sentadilla_bulgara_reps, sb1RM: t.sentadilla_bulgara_1rm,
+          colgarseSegs: t.colgarse_segs, notas: t.notas,
+        });
+      });
+      (compRes.data || []).forEach(c => {
+        const name = c.athlete_name;
+        if (!dbProfiles[name]) dbProfiles[name] = { tests: [], competiciones: [] };
+        if (!dbProfiles[name].competiciones) dbProfiles[name].competiciones = [];
+        dbProfiles[name].competiciones.push({
+          id: c.id, date: c.fecha, evento: c.evento, categoria: c.rival, resultado: c.resultado, notas: c.notas,
+        });
+      });
+      setProfiles(dbProfiles);
+    } catch (e) { console.error("Error loading from DB:", e); }
+  }, []);
+
+  useEffect(() => { fetchData(); loadFromDB(); }, [fetchData, loadFromDB]);
 
   const athleteRows = {};
   allRows.forEach(row => {
@@ -540,7 +586,32 @@ export default function App() {
     try { return new Date(r["Marca temporal"]).toLocaleDateString("es-ES") === today; } catch { return false; }
   }).map(r => r["Nombre del atleta"]))].filter(Boolean);
 
-  const updateProfile = (name, data) => setProfiles(prev => ({ ...prev, [name]: { ...prev[name], ...data } }));
+  const updateProfile = async (name, data) => {
+    setProfiles(prev => ({ ...prev, [name]: { ...prev[name], ...data } }));
+    // Upsert profile to DB
+    try {
+      await supabase.from("athlete_profiles").upsert({
+        name,
+        deporte: data.deporte || profiles[name]?.deporte,
+        fase: data.fase || profiles[name]?.fase,
+        peso: data.peso || profiles[name]?.peso,
+        cmj: data.cmj || profiles[name]?.cmj,
+        sj: data.sj || profiles[name]?.sj,
+        rsi: data.rsi || profiles[name]?.rsi,
+        fr: data.fr || profiles[name]?.fr,
+        w1: data.w1 || profiles[name]?.w1,
+        w2: data.w2 || profiles[name]?.w2,
+        fi: data.fi || profiles[name]?.fi,
+        hero: data.hero || profiles[name]?.hero,
+        vehicle: data.vehicle || profiles[name]?.vehicle,
+        peso_muerto: data.pesoMuerto || profiles[name]?.pesoMuerto,
+        press_banca: data.pressBanca || profiles[name]?.pressBanca,
+        dominada_lastrada: data.dominadaLastrada || profiles[name]?.dominadaLastrada,
+        sentadilla_bulgara: data.sentadillaBulgara || profiles[name]?.sentadillaBulgara,
+        colgarse: data.colgarse || profiles[name]?.colgarse,
+      }, { onConflict: "name" });
+    } catch (e) { console.error("Error saving profile:", e); }
+  };
 
   const exportPDF = (name) => {
     const rows = athleteRows[name] || [];
@@ -992,7 +1063,7 @@ export default function App() {
     const best1RM = Math.max(pm1RM||0, sb1RM||0);
     const autoFR = calcFR(best1RM, nt.peso);
 
-    const addTest = () => {
+    const addTest = async () => {
       if (!nt.date) return;
       const fr = autoFR || nt.fr;
       const hero = clasificarHero(fr, nt.cmj);
@@ -1011,6 +1082,22 @@ export default function App() {
         dominadaLastrada:dl1RM, sentadillaBulgara:sb1RM,
         colgarse:nt.colgarseSegs,
       });
+      // Save test to DB
+      try {
+        // Ensure profile exists first
+        await supabase.from("athlete_profiles").upsert({ name }, { onConflict: "name" });
+        await supabase.from("athlete_tests").insert({
+          athlete_name: name, test_date: nt.date,
+          cmj: nt.cmj||null, sj: nt.sj||null, rsi: nt.rsi||null, peso: nt.peso||null,
+          fr: fr||null, w1: nt.w1||null, w2: nt.w2||null, fi: fi||null,
+          hero, vehicle,
+          peso_muerto_kg: nt.pesoMuertoKg||null, peso_muerto_reps: nt.pesoMuertoReps||null, peso_muerto_1rm: pm1RM||null,
+          press_banca_kg: nt.pressBancaKg||null, press_banca_reps: nt.pressBancaReps||null, press_banca_1rm: pb1RM||null,
+          dominada_lastrada_kg: nt.dominadaLastradaKg||null, dominada_lastrada_reps: nt.dominadaLastradaReps||null, dominada_lastrada_1rm: dl1RM||null,
+          sentadilla_bulgara_kg: nt.sentadillaBulgaraKg||null, sentadilla_bulgara_reps: nt.sentadillaBulgaraReps||null, sentadilla_bulgara_1rm: sb1RM||null,
+          colgarse_segs: nt.colgarseSegs||null, notas: nt.notas||null,
+        });
+      } catch (e) { console.error("Error saving test:", e); }
       setNt({ date:"", cmj:"", sj:"", rsi:"", peso:"", w1:"", w2:"",
         pesoMuertoKg:"", pesoMuertoReps:"", pressBancaKg:"", pressBancaReps:"",
         dominadaLastradaKg:"", dominadaLastradaReps:"", sentadillaBulgaraKg:"", sentadillaBulgaraReps:"",
@@ -1195,7 +1282,7 @@ export default function App() {
     return (
       <div>
         {/* Phase selector */}
-        <div style={{ display:"flex", gap:"8px", marginBottom:"20px", flexWrap:"wrap" }}>
+        <div style={{ display:"flex", gap:"8px", marginBottom:"20px", flexWrap:"wrap", alignItems:"center" }}>
           {Object.entries(ATR_DATA).map(([key, data]) => (
             <button key={key} onClick={()=>setSelectedPhase(key)} style={{
               padding:"10px 20px", cursor:"pointer", fontSize:"12px", letterSpacing:"2px",
@@ -1208,6 +1295,27 @@ export default function App() {
               {data.icon} {key.toUpperCase()}
             </button>
           ))}
+          <button onClick={() => {
+            let text = "SISTEMA ATR — ARES LAB\n" + "=".repeat(50) + "\n\n";
+            Object.entries(ATR_DATA).forEach(([key, data]) => {
+              text += `${data.icon} ${key.toUpperCase()}\n`;
+              text += `Tagline: ${data.tagline}\n`;
+              text += `Dominante: ${data.dominante.join(", ")}\n`;
+              text += `Objetivo: ${data.objetivo}\n\n`;
+              Object.entries(data.bloques).forEach(([bk, bl]) => {
+                text += `  ▸ ${bk}: ${bl.desc}\n`;
+                bl.ejercicios.forEach(e => { text += `    › ${e}\n`; });
+                text += "\n";
+              });
+              text += "\n";
+            });
+            const blob = new Blob([text], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href = url; a.download = "ATR_ARES_LAB.txt"; a.click();
+            URL.revokeObjectURL(url);
+          }} style={{ marginLeft:"auto", padding:"8px 16px", background:"transparent", border:`1px solid ${C.gold}`, color:C.gold, cursor:"pointer", fontSize:"11px", letterSpacing:"2px", fontFamily:"inherit" }}>
+            ⬇ DESCARGAR ATR
+          </button>
         </div>
 
         {/* Phase header */}
@@ -1264,7 +1372,18 @@ export default function App() {
   const CompTab = ({ name, prof, onSave, isMobile }) => {
     const [nc, setNc] = useState({ date:"", evento:"", categoria:"", resultado:"", notas:"" });
     const comps = prof.competiciones || [];
-    const addComp = () => { if (!nc.date||!nc.evento) return; onSave({ competiciones:[...comps,nc] }); setNc({ date:"", evento:"", categoria:"", resultado:"", notas:"" }); };
+    const addComp = async () => {
+      if (!nc.date||!nc.evento) return;
+      onSave({ competiciones:[...comps,nc] });
+      try {
+        await supabase.from("athlete_profiles").upsert({ name }, { onConflict: "name" });
+        await supabase.from("athlete_competitions").insert({
+          athlete_name: name, evento: nc.evento, fecha: nc.date,
+          rival: nc.categoria||null, resultado: nc.resultado||null, notas: nc.notas||null,
+        });
+      } catch (e) { console.error("Error saving competition:", e); }
+      setNc({ date:"", evento:"", categoria:"", resultado:"", notas:"" });
+    };
     const today = new Date();
     const upcoming = comps.filter(c=>new Date(c.date)>=today).sort((a,b)=>new Date(a.date)-new Date(b.date));
     const past = comps.filter(c=>new Date(c.date)<today).sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -1323,12 +1442,25 @@ export default function App() {
     const name = editingAthlete;
     const [form, setForm] = useState({ deporte:"MMA", fase:"off-camp", ...(profiles[name]||{}) });
     const setF = (k,v) => setForm(p=>({...p,[k]:v}));
-    const save = () => {
+    const save = async () => {
       const hero = clasificarHero(form.fr, form.cmj);
       const vehicle = clasificarVehicle(form.w1, form.w2);
       const ws = calcWingateStats(form.w1, form.w2);
-      setProfiles(prev=>({...prev,[name]:{...form,hero,vehicle,fi:ws?.fi||form.fi}}));
+      const updatedProfile = {...form, hero, vehicle, fi: ws?.fi||form.fi};
+      setProfiles(prev=>({...prev,[name]:{...prev[name], ...updatedProfile}}));
       setShowEditModal(false);
+      try {
+        await supabase.from("athlete_profiles").upsert({
+          name,
+          deporte: form.deporte, fase: form.fase, peso: form.peso,
+          cmj: form.cmj, sj: form.sj, rsi: form.rsi, fr: form.fr,
+          w1: form.w1, w2: form.w2, fi: ws?.fi||form.fi,
+          hero, vehicle,
+          peso_muerto: form.pesoMuerto, press_banca: form.pressBanca,
+          dominada_lastrada: form.dominadaLastrada, sentadilla_bulgara: form.sentadillaBulgara,
+          colgarse: form.colgarse,
+        }, { onConflict: "name" });
+      } catch (e) { console.error("Error saving profile:", e); }
     };
     return (
       <div style={{ position:"fixed", inset:0, background:"#000000cc", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
