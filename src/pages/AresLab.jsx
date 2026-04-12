@@ -525,7 +525,52 @@ export default function App() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Load profiles, tests, competitions from Supabase
+  const loadFromDB = useCallback(async () => {
+    try {
+      const [profRes, testRes, compRes] = await Promise.all([
+        supabase.from("athlete_profiles").select("*"),
+        supabase.from("athlete_tests").select("*").order("test_date", { ascending: true }),
+        supabase.from("athlete_competitions").select("*"),
+      ]);
+      const dbProfiles = {};
+      (profRes.data || []).forEach(p => {
+        dbProfiles[p.name] = {
+          deporte: p.deporte, fase: p.fase, peso: p.peso, cmj: p.cmj, sj: p.sj, rsi: p.rsi, fr: p.fr,
+          w1: p.w1, w2: p.w2, fi: p.fi, hero: p.hero, vehicle: p.vehicle,
+          pesoMuerto: p.peso_muerto, pressBanca: p.press_banca,
+          dominadaLastrada: p.dominada_lastrada, sentadillaBulgara: p.sentadilla_bulgara,
+          colgarse: p.colgarse,
+          tests: [],
+          competiciones: [],
+        };
+      });
+      (testRes.data || []).forEach(t => {
+        const name = t.athlete_name;
+        if (!dbProfiles[name]) dbProfiles[name] = { tests: [], competiciones: [] };
+        dbProfiles[name].tests.push({
+          date: t.test_date, cmj: t.cmj, sj: t.sj, rsi: t.rsi, peso: t.peso, fr: t.fr,
+          w1: t.w1, w2: t.w2, fi: t.fi, hero: t.hero, vehicle: t.vehicle,
+          pesoMuertoKg: t.peso_muerto_kg, pesoMuertoReps: t.peso_muerto_reps, pm1RM: t.peso_muerto_1rm,
+          pressBancaKg: t.press_banca_kg, pressBancaReps: t.press_banca_reps, pb1RM: t.press_banca_1rm,
+          dominadaLastradaKg: t.dominada_lastrada_kg, dominadaLastradaReps: t.dominada_lastrada_reps, dl1RM: t.dominada_lastrada_1rm,
+          sentadillaBulgaraKg: t.sentadilla_bulgara_kg, sentadillaBulgaraReps: t.sentadilla_bulgara_reps, sb1RM: t.sentadilla_bulgara_1rm,
+          colgarseSegs: t.colgarse_segs, notas: t.notas,
+        });
+      });
+      (compRes.data || []).forEach(c => {
+        const name = c.athlete_name;
+        if (!dbProfiles[name]) dbProfiles[name] = { tests: [], competiciones: [] };
+        if (!dbProfiles[name].competiciones) dbProfiles[name].competiciones = [];
+        dbProfiles[name].competiciones.push({
+          id: c.id, date: c.fecha, evento: c.evento, categoria: c.rival, resultado: c.resultado, notas: c.notas,
+        });
+      });
+      setProfiles(dbProfiles);
+    } catch (e) { console.error("Error loading from DB:", e); }
+  }, []);
+
+  useEffect(() => { fetchData(); loadFromDB(); }, [fetchData, loadFromDB]);
 
   const athleteRows = {};
   allRows.forEach(row => {
@@ -541,7 +586,32 @@ export default function App() {
     try { return new Date(r["Marca temporal"]).toLocaleDateString("es-ES") === today; } catch { return false; }
   }).map(r => r["Nombre del atleta"]))].filter(Boolean);
 
-  const updateProfile = (name, data) => setProfiles(prev => ({ ...prev, [name]: { ...prev[name], ...data } }));
+  const updateProfile = async (name, data) => {
+    setProfiles(prev => ({ ...prev, [name]: { ...prev[name], ...data } }));
+    // Upsert profile to DB
+    try {
+      await supabase.from("athlete_profiles").upsert({
+        name,
+        deporte: data.deporte || profiles[name]?.deporte,
+        fase: data.fase || profiles[name]?.fase,
+        peso: data.peso || profiles[name]?.peso,
+        cmj: data.cmj || profiles[name]?.cmj,
+        sj: data.sj || profiles[name]?.sj,
+        rsi: data.rsi || profiles[name]?.rsi,
+        fr: data.fr || profiles[name]?.fr,
+        w1: data.w1 || profiles[name]?.w1,
+        w2: data.w2 || profiles[name]?.w2,
+        fi: data.fi || profiles[name]?.fi,
+        hero: data.hero || profiles[name]?.hero,
+        vehicle: data.vehicle || profiles[name]?.vehicle,
+        peso_muerto: data.pesoMuerto || profiles[name]?.pesoMuerto,
+        press_banca: data.pressBanca || profiles[name]?.pressBanca,
+        dominada_lastrada: data.dominadaLastrada || profiles[name]?.dominadaLastrada,
+        sentadilla_bulgara: data.sentadillaBulgara || profiles[name]?.sentadillaBulgara,
+        colgarse: data.colgarse || profiles[name]?.colgarse,
+      }, { onConflict: "name" });
+    } catch (e) { console.error("Error saving profile:", e); }
+  };
 
   const exportPDF = (name) => {
     const rows = athleteRows[name] || [];
