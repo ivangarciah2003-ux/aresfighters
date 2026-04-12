@@ -1,31 +1,38 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import aresLogo from "@/assets/ares-logo.jpg";
 
 const SHEET_ID = "1YVVhsxu-K_1fDCAk9gd4iSgCM4swtw1CTL-B5YSknYQ";
 const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
 
+// ── ARES BRAND COLORS ──
 const C = {
-  bg: "#07080d", surface: "#0f1018", card: "#13151f", cardHover: "#191c2a",
-  border: "#1e2130", borderBright: "#2a2f45",
-  red: "#e63946", redDim: "#3d1218", gold: "#f4a261", cyan: "#00c9ff",
-  green: "#00e676", greenDim: "#003d1e", yellow: "#ffd60a", yellowDim: "#3d3000",
-  muted: "#5a6080", text: "#dde1f0", textDim: "#8890aa",
+  bg: "#0a0a0a", surface: "#111111", card: "#161616", cardHover: "#1c1c1c",
+  border: "#2a2a2a", borderBright: "#3a3a3a",
+  gold: "#d4a843", goldDim: "#d4a84322", goldBright: "#e8c35a",
+  red: "#c0392b", redDim: "#3d1218",
+  cyan: "#5dade2", green: "#27ae60", greenDim: "#003d1e",
+  yellow: "#f1c40f", yellowDim: "#3d3000",
+  muted: "#6b6b6b", text: "#e8e8e8", textDim: "#999999",
 };
 
 const HERO_DATA = {
-  Superman:     { color: C.cyan,   icon: "⚡", desc: "Fuerza + Velocidad. Mantenimiento integrado.", prio: { dom: "Mantenimiento integrado", mant: "Fast Force", sop: "High Force / Long Force" } },
+  Superman:     { color: C.gold,   icon: "⚡", desc: "Fuerza + Velocidad. Mantenimiento integrado.", prio: { dom: "Mantenimiento integrado", mant: "Fast Force", sop: "High Force / Long Force" } },
   Hulk:         { color: C.red,    icon: "💥", desc: "Fuerza alta, velocidad baja. Fast Force dominante.", prio: { dom: "Fast Force", mant: "High Force", sop: "Long Force" } },
   Flash:        { color: C.yellow, icon: "🏃", desc: "Velocidad alta, fuerza baja. High Force dominante.", prio: { dom: "High Force", mant: "Fast Force", sop: "Long Force" } },
   "Viuda Negra":{ color: C.muted,  icon: "🕷", desc: "Sin base aún. Slow + High primero.", prio: { dom: "Slow Force + High Force", mant: "Long Force", sop: "Fast Force (mínimo)" } },
 };
 
+// ── NEW VEHICLE SYSTEM ──
 const VEHICLE_DATA = {
-  Ferrari:         { color: C.red,   icon: "🏎", desc: "Pico alto, cae rápido. FI alto." },
-  Tractor:         { color: C.gold,  icon: "🚜", desc: "Repite bien, no acelera. W1 bajo." },
-  Híbrido:         { color: C.green, icon: "🔋", desc: "Equilibrado. Buena repetibilidad." },
-  "Híbrido Rápido":{ color: C.cyan,  icon: "⚡", desc: "Rápido y bastante repetible." },
+  Velero:  { color: C.green, icon: "⛵", desc: "Explosivo y consistente. Potencia alta + mantiene." },
+  Lancha:  { color: C.red,   icon: "🚤", desc: "Sale fuerte pero se hunde. Potencia alta, caída importante." },
+  Barco:   { color: C.cyan,  icon: "🛳", desc: "No muy explosivo, pero aguanta muy bien. Repeatability alta." },
+  Moto:    { color: C.yellow, icon: "🏍", desc: "Ni potencia ni capacidad de repetir. Necesita trabajo global." },
 };
 
-// ── UTILS ──────────────────────────────────────────────────────────────────────
+const THRESHOLD_POTENCIA = 10; // W/kg reference
+
+// ── UTILS ──
 const parseGVizDate = (v) => {
   if (typeof v === "string") {
     const m = v.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)$/);
@@ -57,19 +64,41 @@ const clasificarHero = (fr, cmj) => {
   if (f<1.5&&c>=35)  return "Flash";
   return "Viuda Negra";
 };
-const clasificarVehicle = (w1, w2, fi) => {
-  if (!w1||!w2) return null;
-  const rep = (parseFloat(w2)/parseFloat(w1))*100;
-  const fiN = parseFloat(fi)||0;
-  if (rep>=90&&fiN<=15) return "Híbrido";
-  if (rep>=90)          return "Tractor";
-  if (fiN<=15)          return "Híbrido Rápido";
-  return "Ferrari";
+
+// NEW: Vehicle classification based on Sprint1/Sprint2
+const clasificarVehicle = (w1, w2) => {
+  const s1 = parseFloat(w1), s2 = parseFloat(w2);
+  if (isNaN(s1)||isNaN(s2)||s1<=0) return null;
+  const ratio = s2 / s1;
+  const potenciaAlta = s1 >= THRESHOLD_POTENCIA;
+  const repeatAlta = ratio >= 0.9;
+  if (potenciaAlta && repeatAlta) return "Velero";
+  if (potenciaAlta && !repeatAlta) return "Lancha";
+  if (!potenciaAlta && repeatAlta) return "Barco";
+  return "Moto";
 };
+
+const calcWingateStats = (w1, w2) => {
+  const s1 = parseFloat(w1), s2 = parseFloat(w2);
+  if (isNaN(s1)||isNaN(s2)||s1<=0) return null;
+  const ratio = (s2/s1);
+  const fi = ((s1-s2)/s1)*100;
+  return { ratio: ratio.toFixed(2), ratioPercent: (ratio*100).toFixed(1), fi: fi.toFixed(1) };
+};
+
+const getVehicleInterpretation = (vehicle) => {
+  const interps = {
+    Velero: "Potencia alta y mantiene muy bien en el segundo sprint. Perfil ideal para competición.",
+    Lancha: "Potencia alta pero caída importante en el segundo sprint. Mejorar repeatability y conditioning.",
+    Barco: "No es muy explosivo, pero aguanta muy bien. Mejorar potencia de salida.",
+    Moto: "Ni potencia ni capacidad de repetir. Necesita trabajo global: potencia + conditioning.",
+  };
+  return interps[vehicle] || "";
+};
+
 const fmtDate = (d) => { if(!d) return "–"; const dt=new Date(d); return isNaN(dt)?d:dt.toLocaleDateString("es-ES",{day:"2-digit",month:"short"}); };
 const getWeekKey = (d) => { const dt=new Date(d); if(isNaN(dt)) return null; const jan1=new Date(dt.getFullYear(),0,1); return `${dt.getFullYear()}-W${Math.ceil(((dt-jan1)/86400000+jan1.getDay()+1)/7)}`; };
 
-// ACWR: Aguda (7d) / Crónica (28d)
 const calcACWR = (rows) => {
   const sorted = rows.slice().sort((a,b)=>new Date(a["Marca temporal"])-new Date(b["Marca temporal"]));
   const now = new Date();
@@ -81,16 +110,16 @@ const calcACWR = (rows) => {
   return { acute: Math.round(acute), chronic: Math.round(chronic), ratio };
 };
 
-// ── BASE COMPONENTS ────────────────────────────────────────────────────────────
+// ── BASE COMPONENTS ──
 const Badge = ({ label, color, small }) => (
-  <span style={{ display:"inline-flex", alignItems:"center", padding: small?"2px 8px":"4px 12px", background:color+"22", border:`1px solid ${color}`, color, fontSize:small?"10px":"11px", letterSpacing:"1.5px", textTransform:"uppercase", borderRadius:"2px", fontFamily:"'DM Mono',monospace", fontWeight:"600" }}>{label}</span>
+  <span style={{ display:"inline-flex", alignItems:"center", padding: small?"2px 8px":"4px 12px", background:color+"22", border:`1px solid ${color}`, color, fontSize:small?"10px":"11px", letterSpacing:"1.5px", textTransform:"uppercase", borderRadius:"2px", fontFamily:"'Inter',sans-serif", fontWeight:"600" }}>{label}</span>
 );
 
 const StatBox = ({ label, value, color, sub }) => (
-  <div style={{ background:C.surface, border:`1px solid ${C.border}`, padding:"14px 16px", flex:1, minWidth:"80px" }}>
-    <div style={{ fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{label}</div>
-    <div style={{ fontSize:"22px", fontWeight:"700", color:color||C.text }}>{value}</div>
-    {sub && <div style={{ fontSize:"11px", color:C.muted, marginTop:"2px" }}>{sub}</div>}
+  <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderTop:`2px solid ${color||C.gold}`, padding:"16px 18px", flex:1, minWidth:"80px" }}>
+    <div style={{ fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"6px" }}>{label}</div>
+    <div style={{ fontSize:"24px", fontWeight:"700", color:color||C.text }}>{value}</div>
+    {sub && <div style={{ fontSize:"11px", color:C.muted, marginTop:"4px" }}>{sub}</div>}
   </div>
 );
 
@@ -106,66 +135,86 @@ const Sparkline = ({ data, color, h=32, w=100 }) => {
   );
 };
 
-// ── CUADRANTE SVG ──────────────────────────────────────────────────────────────
+// ── WINGATE RESULT CARD ──
+const WingateCard = ({ w1, w2 }) => {
+  const stats = calcWingateStats(w1, w2);
+  const vehicle = clasificarVehicle(w1, w2);
+  if (!stats || !vehicle) return null;
+  const vInfo = VEHICLE_DATA[vehicle];
+  return (
+    <div style={{ background:C.card, border:`1px solid ${vInfo.color}44`, borderLeft:`4px solid ${vInfo.color}`, padding:"20px" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:"16px", marginBottom:"16px" }}>
+        <div style={{ fontSize:"36px" }}>{vInfo.icon}</div>
+        <div>
+          <div style={{ fontSize:"20px", fontWeight:"700", color:vInfo.color }}>{vehicle}</div>
+          <div style={{ fontSize:"12px", color:C.textDim, marginTop:"2px" }}>{vInfo.desc}</div>
+        </div>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:"12px", marginBottom:"16px" }}>
+        <div style={{ background:C.surface, padding:"12px", textAlign:"center" }}>
+          <div style={{ fontSize:"9px", color:C.muted, letterSpacing:"2px", marginBottom:"4px" }}>SPRINT 1</div>
+          <div style={{ fontSize:"18px", fontWeight:"700", color:C.text }}>{w1}<span style={{fontSize:"11px",color:C.muted}}>W/kg</span></div>
+        </div>
+        <div style={{ background:C.surface, padding:"12px", textAlign:"center" }}>
+          <div style={{ fontSize:"9px", color:C.muted, letterSpacing:"2px", marginBottom:"4px" }}>SPRINT 2</div>
+          <div style={{ fontSize:"18px", fontWeight:"700", color:C.text }}>{w2}<span style={{fontSize:"11px",color:C.muted}}>W/kg</span></div>
+        </div>
+        <div style={{ background:C.surface, padding:"12px", textAlign:"center" }}>
+          <div style={{ fontSize:"9px", color:C.muted, letterSpacing:"2px", marginBottom:"4px" }}>RATIO</div>
+          <div style={{ fontSize:"18px", fontWeight:"700", color:parseFloat(stats.ratio)>=0.9?C.green:parseFloat(stats.ratio)>=0.75?C.yellow:C.red }}>{stats.ratioPercent}%</div>
+        </div>
+        <div style={{ background:C.surface, padding:"12px", textAlign:"center" }}>
+          <div style={{ fontSize:"9px", color:C.muted, letterSpacing:"2px", marginBottom:"4px" }}>FI</div>
+          <div style={{ fontSize:"18px", fontWeight:"700", color:parseFloat(stats.fi)<=10?C.green:parseFloat(stats.fi)<=25?C.yellow:C.red }}>{stats.fi}%</div>
+        </div>
+      </div>
+      <div style={{ background:C.surface, padding:"12px 16px", borderLeft:`3px solid ${vInfo.color}`, fontSize:"12px", color:C.textDim }}>
+        {getVehicleInterpretation(vehicle)}
+      </div>
+    </div>
+  );
+};
+
+// ── CUADRANTE SVG ──
 const Cuadrante = ({ athletes, profiles }) => {
   const [hovered, setHovered] = useState(null);
   const W = 440, H = 380, PAD = 48;
   const plotW = W - PAD*2, plotH = H - PAD*2;
-
-  // FR eje X (0→2.5), CMJ eje Y (0→60)
   const toX = (fr) => PAD + (Math.min(parseFloat(fr)||0, 2.5)/2.5)*plotW;
   const toY = (cmj) => PAD + plotH - (Math.min(parseFloat(cmj)||0, 60)/60)*plotH;
-
-  const athletes_with_data = athletes.filter(name => {
-    const p = profiles[name]||{};
-    return p.fr && p.cmj;
-  });
+  const athletes_with_data = athletes.filter(name => { const p = profiles[name]||{}; return p.fr && p.cmj; });
 
   return (
     <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px" }}>
       <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"12px", textTransform:"uppercase" }}>Cuadrante Fuerza — Velocidad</div>
       <div style={{ position:"relative", display:"inline-block" }}>
         <svg width={W} height={H} style={{ display:"block" }}>
-          {/* Fondo cuadrantes */}
           <rect x={PAD} y={PAD} width={plotW/2} height={plotH/2} fill={C.yellow+"08"} />
-          <rect x={PAD+plotW/2} y={PAD} width={plotW/2} height={plotH/2} fill={C.cyan+"08"} />
+          <rect x={PAD+plotW/2} y={PAD} width={plotW/2} height={plotH/2} fill={C.gold+"08"} />
           <rect x={PAD} y={PAD+plotH/2} width={plotW/2} height={plotH/2} fill={C.muted+"08"} />
           <rect x={PAD+plotW/2} y={PAD+plotH/2} width={plotW/2} height={plotH/2} fill={C.red+"08"} />
-
-          {/* Labels cuadrantes */}
-          <text x={PAD+8} y={PAD+18} fill={C.yellow} fontSize="10" fontFamily="DM Mono" opacity="0.7">FLASH</text>
-          <text x={PAD+plotW/2+8} y={PAD+18} fill={C.cyan} fontSize="10" fontFamily="DM Mono" opacity="0.7">SUPERMAN</text>
-          <text x={PAD+8} y={PAD+plotH/2+18} fill={C.muted} fontSize="10" fontFamily="DM Mono" opacity="0.7">VIUDA NEGRA</text>
-          <text x={PAD+plotW/2+8} y={PAD+plotH/2+18} fill={C.red} fontSize="10" fontFamily="DM Mono" opacity="0.7">HULK</text>
-
-          {/* Ejes */}
+          <text x={PAD+8} y={PAD+18} fill={C.yellow} fontSize="10" fontFamily="Inter" opacity="0.7">FLASH</text>
+          <text x={PAD+plotW/2+8} y={PAD+18} fill={C.gold} fontSize="10" fontFamily="Inter" opacity="0.7">SUPERMAN</text>
+          <text x={PAD+8} y={PAD+plotH/2+18} fill={C.muted} fontSize="10" fontFamily="Inter" opacity="0.7">VIUDA NEGRA</text>
+          <text x={PAD+plotW/2+8} y={PAD+plotH/2+18} fill={C.red} fontSize="10" fontFamily="Inter" opacity="0.7">HULK</text>
           <line x1={PAD} y1={PAD} x2={PAD} y2={PAD+plotH} stroke={C.border} strokeWidth="1"/>
           <line x1={PAD} y1={PAD+plotH} x2={PAD+plotW} y2={PAD+plotH} stroke={C.border} strokeWidth="1"/>
-
-          {/* Líneas de umbral */}
           <line x1={toX(1.5)} y1={PAD} x2={toX(1.5)} y2={PAD+plotH} stroke={C.gold} strokeWidth="1" strokeDasharray="4,4" opacity="0.5"/>
           <line x1={PAD} y1={toY(35)} x2={PAD+plotW} y2={toY(35)} stroke={C.gold} strokeWidth="1" strokeDasharray="4,4" opacity="0.5"/>
-
-          {/* Labels ejes */}
-          <text x={PAD+plotW/2} y={H-6} fill={C.muted} fontSize="10" fontFamily="DM Mono" textAnchor="middle">Fuerza Relativa (xBW)</text>
-          <text x={10} y={PAD+plotH/2} fill={C.muted} fontSize="10" fontFamily="DM Mono" textAnchor="middle" transform={`rotate(-90,10,${PAD+plotH/2})`}>CMJ (cm)</text>
-
-          {/* Ticks eje X */}
+          <text x={PAD+plotW/2} y={H-6} fill={C.muted} fontSize="10" fontFamily="Inter" textAnchor="middle">Fuerza Relativa (xBW)</text>
+          <text x={10} y={PAD+plotH/2} fill={C.muted} fontSize="10" fontFamily="Inter" textAnchor="middle" transform={`rotate(-90,10,${PAD+plotH/2})`}>CMJ (cm)</text>
           {[0,0.5,1.0,1.5,2.0,2.5].map(v=>(
             <g key={v}>
               <line x1={toX(v)} y1={PAD+plotH} x2={toX(v)} y2={PAD+plotH+4} stroke={C.border} strokeWidth="1"/>
-              <text x={toX(v)} y={PAD+plotH+14} fill={C.muted} fontSize="9" fontFamily="DM Mono" textAnchor="middle">{v}</text>
+              <text x={toX(v)} y={PAD+plotH+14} fill={C.muted} fontSize="9" fontFamily="Inter" textAnchor="middle">{v}</text>
             </g>
           ))}
-          {/* Ticks eje Y */}
           {[0,15,30,45,60].map(v=>(
             <g key={v}>
               <line x1={PAD-4} y1={toY(v)} x2={PAD} y2={toY(v)} stroke={C.border} strokeWidth="1"/>
-              <text x={PAD-8} y={toY(v)+4} fill={C.muted} fontSize="9" fontFamily="DM Mono" textAnchor="end">{v}</text>
+              <text x={PAD-8} y={toY(v)+4} fill={C.muted} fontSize="9" fontFamily="Inter" textAnchor="end">{v}</text>
             </g>
           ))}
-
-          {/* Puntos atletas */}
           {athletes_with_data.map(name => {
             const p = profiles[name]||{};
             const hero = clasificarHero(p.fr, p.cmj);
@@ -175,9 +224,7 @@ const Cuadrante = ({ athletes, profiles }) => {
             return (
               <g key={name} onMouseEnter={()=>setHovered(name)} onMouseLeave={()=>setHovered(null)} style={{cursor:"pointer"}}>
                 <circle cx={x} cy={y} r={isH?10:7} fill={(hInfo?.color||C.muted)+"44"} stroke={hInfo?.color||C.muted} strokeWidth={isH?2:1.5}/>
-                {isH && (
-                  <text x={x} y={y-14} fill={C.text} fontSize="10" fontFamily="DM Mono" textAnchor="middle" fontWeight="600">{name.split(" ")[0]}</text>
-                )}
+                {isH && <text x={x} y={y-14} fill={C.text} fontSize="10" fontFamily="Inter" textAnchor="middle" fontWeight="600">{name.split(" ")[0]}</text>}
               </g>
             );
           })}
@@ -202,35 +249,25 @@ const Cuadrante = ({ athletes, profiles }) => {
   );
 };
 
-// ── PANEL COMPETICIONES GLOBAL ─────────────────────────────────────────────────
+// ── PANEL COMPETICIONES GLOBAL ──
 const CompeticionesGlobal = ({ allAthleteNames, profiles, onSelectAthlete }) => {
   const today = new Date();
   const allComps = [];
   allAthleteNames.forEach(name => {
     const comps = profiles[name]?.competiciones || [];
-    comps.forEach(c => {
-      if (c.date) allComps.push({ ...c, athlete: name });
-    });
+    comps.forEach(c => { if (c.date) allComps.push({ ...c, athlete: name }); });
   });
   allComps.sort((a,b) => new Date(a.date) - new Date(b.date));
   const upcoming = allComps.filter(c => new Date(c.date) >= today);
   const past = allComps.filter(c => new Date(c.date) < today).slice(-5).reverse();
-
-  const daysUntil = (ds) => {
-    const diff = Math.ceil((new Date(ds)-today)/86400000);
-    if (diff===0) return "¡HOY!";
-    if (diff===1) return "Mañana";
-    return `${diff}d`;
-  };
+  const daysUntil = (ds) => { const diff = Math.ceil((new Date(ds)-today)/86400000); if (diff===0) return "¡HOY!"; if (diff===1) return "Mañana"; return `${diff}d`; };
 
   return (
     <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px" }}>
       <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"16px", textTransform:"uppercase" }}>Panel de Competiciones</div>
       {upcoming.length === 0 && <div style={{ fontSize:"12px", color:C.muted, marginBottom:"16px" }}>No hay competiciones próximas registradas.</div>}
       {upcoming.map((c, i) => {
-        const days = Math.ceil((new Date(c.date)-today)/86400000);
-        const urgent = days <= 14;
-        const hInfo = HERO_DATA[clasificarHero(profiles[c.athlete]?.fr, profiles[c.athlete]?.cmj)];
+        const days = Math.ceil((new Date(c.date)-today)/86400000); const urgent = days <= 14;
         return (
           <div key={i} onClick={() => onSelectAthlete(c.athlete)} style={{ display:"flex", alignItems:"center", gap:"12px", padding:"10px 12px", marginBottom:"6px", background: urgent ? C.redDim : C.surface, border:`1px solid ${urgent ? C.red : C.border}`, cursor:"pointer" }}>
             <div style={{ fontSize:"18px" }}>🥊</div>
@@ -239,7 +276,7 @@ const CompeticionesGlobal = ({ allAthleteNames, profiles, onSelectAthlete }) => 
               <div style={{ fontSize:"11px", color:C.muted }}>{c.evento} · {c.categoria}</div>
             </div>
             <div style={{ textAlign:"right" }}>
-              <div style={{ fontSize:"13px", fontWeight:"700", color: urgent ? C.red : C.yellow }}>{daysUntil(c.date)}</div>
+              <div style={{ fontSize:"13px", fontWeight:"700", color: urgent ? C.red : C.gold }}>{daysUntil(c.date)}</div>
               <div style={{ fontSize:"10px", color:C.muted }}>{c.date}</div>
             </div>
             {urgent && <div style={{ fontSize:"10px", letterSpacing:"2px", color:C.red, textTransform:"uppercase" }}>{days<=7?"PEAKING":"CAMP"}</div>}
@@ -263,38 +300,68 @@ const CompeticionesGlobal = ({ allAthleteNames, profiles, onSelectAthlete }) => 
   );
 };
 
-// ── GENERADOR IA ───────────────────────────────────────────────────────────────
+// ── GENERADOR IA ──
 const GeneradorIA = ({ name, prof }) => {
   const [loading, setLoading] = useState(false);
   const [plan, setPlan] = useState(null);
   const [dias, setDias] = useState("4");
   const hero = prof.hero || clasificarHero(prof.fr, prof.cmj);
-  const vehicle = prof.vehicle || clasificarVehicle(prof.w1, prof.w2, prof.fi);
+  const vehicle = prof.vehicle || clasificarVehicle(prof.w1, prof.w2);
   const fase = prof.fase || "off-camp";
+
+  const ARES_SYSTEM = `Eres el asistente del sistema ARES, creado por Human Ability para el entrenamiento de peleadores de deportes de combate. Tu misión no es proponer ejercicios bonitos, sino tomar decisiones correctas basadas en el perfil real de cada atleta.
+
+FILOSOFÍA CENTRAL: El entrenamiento es un problema de toma de decisiones, no de creatividad. ARES = Evaluar → Clasificar → Priorizar → Programar → Controlar → Re-evaluar. Nunca propones lo mismo para todos. Cada decisión parte del déficit real del atleta.
+
+RENDIMIENTO = Fuerza + Velocidad + Energía + Mecánica
+
+PERFILES NEUROMUSCULARES (CMJ vs Fuerza Relativa):
+- Hulk: FR≥1.5 + CMJ<35 → Fast Force dominante
+- Flash: FR<1.5 + CMJ≥35 → High Force dominante
+- Viuda Negra: FR<1.5 + CMJ<35 → Slow + High primero
+- Superman: FR≥1.5 + CMJ≥35 → Mantenimiento integrado
+
+PERFILES ENERGÉTICOS (Doble Wingate):
+- Velero ⛵: Potencia alta + repeatability alta → explosivo y consistente
+- Lancha 🚤: Potencia alta + repeatability baja → sale fuerte pero se hunde
+- Barco 🛳: Potencia baja + repeatability alta → no es muy explosivo pero aguanta
+- Moto 🏍: Potencia baja + repeatability baja → ni potencia ni capacidad de repetir
+
+SISTEMA DE FUERZAS:
+- Slow Force: control, tejido, base estructural
+- High Force: fuerza máxima, techo de producción. Estímulo ROJO
+- Fast Force: RFD, transferencia, potencia. Siempre presente
+- Long Force: zona 2, base oxidativa, recuperación
+
+ESTRUCTURA DE SESIÓN: 5+1 Prep → Saltos/Lanzamientos → Velocidad → Fuerza → Energético → Recuperación. Los jumps SIEMPRE antes de la fatiga, nunca al final.
+
+SEMÁFORO DE CARGA: Verde: UA < 200 | Amarillo: UA 200–450 | Rojo: UA > 450. No encadenar días rojos.
+
+PERIODIZACIÓN ATR:
+- Acumulación: Slow dominante (fase general)
+- Transformación: Fast dominante (fase específica)
+- Realización: bajo volumen, alta velocidad (pre-pelea)
+
+REGLAS ABSOLUTAS:
+- Sin absorción, la reactividad es ficción
+- No destruir días Fast con glucolítico mal colocado
+- No programar por moda, programar por perfil
+- La transferencia no se decide por parecido visual sino por lógica de fuerzas
+- No gana el que más entrena, sino el que recibe el estímulo que necesitaba
+
+Responde SOLO JSON válido sin markdown ni backticks.`;
 
   const generar = async () => {
     setLoading(true); setPlan(null);
-    const prompt = `Eres el Sistema ARES de entrenamiento para peleadores de deportes de combate.
-
-PERFIL DEL ATLETA: ${name}
+    const prompt = `PERFIL DEL ATLETA: ${name}
 - Perfil neuromuscular: ${hero || "Sin clasificar"}
 - Perfil energético: ${vehicle || "Sin datos"}
-- Fase: ${fase}
+- Fase ATR: ${fase}
 - Deporte: ${prof.deporte || "MMA"}
 - Días disponibles: ${dias}
+${prof.rsi ? `- RSI: ${prof.rsi}` : ""}
 
-REGLAS ARES:
-- Hulk → Fast Force dominante, High mantenimiento
-- Flash → High Force dominante, Fast mantenimiento  
-- Viuda Negra → Slow + High antes de transferencia
-- Superman → Mantenimiento integrado
-- Estructura sesión: Prep → Saltos/Lanzamientos → Velocidad → Fuerza → Energético
-- Jumps SIEMPRE antes de fatiga
-- Semáforo: LOW verde (<200 UA), MODERATE amarillo (200-450), HIGH rojo (>450)
-- No encadenar días rojos
-- AITR: Acumulación=Slow, Intensificación=High, Transformación=Fast, Realización=bajo volumen
-
-Genera un microciclo de ${dias} días. Responde SOLO JSON sin markdown:
+Genera un microciclo de ${dias} días. Responde SOLO JSON:
 {"resumen":"lógica del bloque","bloque_dominante":"nombre","dias":[{"dia":"Lunes","color":"amarillo","tipo":"Fast Force","estructura":[{"bloque":"Prep","ejercicios":["Respiración 4-4-4","Movilidad cadera"],"duracion":"10 min"},{"bloque":"Saltos","ejercicios":["Squat Jump 4x4"],"duracion":"10 min"},{"bloque":"Velocidad","ejercicios":["Aceleración 10m x5"],"duracion":"8 min"},{"bloque":"Fuerza","ejercicios":["Trap Bar Jump 4x3 @40%"],"duracion":"20 min"},{"bloque":"Energético","ejercicios":["Aláctico 6x8s/90s"],"duracion":"10 min"}],"notas":"Calidad neural sobre todo","ua_estimada":320}],"frase_maestra":"frase del sistema"}`;
 
     try {
@@ -302,7 +369,7 @@ Genera un microciclo de ${dias} días. Responde SOLO JSON sin markdown:
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:3000,
-          system:"Eres el Sistema ARES. Responde SOLO JSON válido sin markdown ni backticks.",
+          system: ARES_SYSTEM,
           messages:[{role:"user",content:prompt}]
         })
       });
@@ -328,7 +395,7 @@ Genera un microciclo de ${dias} días. Responde SOLO JSON sin markdown:
             <select value={dias} onChange={e=>setDias(e.target.value)} style={{ background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"7px 12px", fontFamily:"inherit", fontSize:"13px", outline:"none" }}>
               {["3","4","5","6"].map(d=><option key={d}>{d}</option>)}
             </select>
-            <button onClick={generar} disabled={loading} style={{ padding:"8px 20px", background:C.red, border:"none", color:"#fff", cursor:"pointer", fontSize:"11px", letterSpacing:"2px", fontFamily:"inherit" }}>
+            <button onClick={generar} disabled={loading} style={{ padding:"8px 20px", background:C.gold, border:"none", color:"#000", cursor:"pointer", fontSize:"11px", letterSpacing:"2px", fontFamily:"inherit", fontWeight:"700" }}>
               {loading ? "⟳ GENERANDO..." : "▶ GENERAR PLAN"}
             </button>
           </div>
@@ -340,7 +407,7 @@ Genera un microciclo de ${dias} días. Responde SOLO JSON sin markdown:
           <div style={{ background:C.surface, border:`1px solid ${C.border}`, padding:"16px", marginBottom:"16px", borderLeft:`3px solid ${C.gold}` }}>
             <div style={{ fontSize:"11px", color:C.gold, letterSpacing:"2px", marginBottom:"4px" }}>LÓGICA DEL BLOQUE</div>
             <div style={{ fontSize:"13px", color:C.text }}>{plan.resumen}</div>
-            <div style={{ marginTop:"8px" }}><Badge label={plan.bloque_dominante} color={C.red} /></div>
+            <div style={{ marginTop:"8px" }}><Badge label={plan.bloque_dominante} color={C.gold} /></div>
           </div>
           {plan.dias?.map((dia,i) => (
             <div key={i} style={{ background:C.card, border:`1px solid ${C.border}`, borderLeft:`4px solid ${semColors[dia.color]||C.border}`, padding:"16px", marginBottom:"10px" }}>
@@ -365,9 +432,9 @@ Genera un microciclo de ${dias} días. Responde SOLO JSON sin markdown:
             </div>
           ))}
           {plan.frase_maestra && (
-            <div style={{ textAlign:"center", padding:"16px", borderTop:`2px solid ${C.red}`, marginTop:"4px" }}>
+            <div style={{ textAlign:"center", padding:"16px", borderTop:`2px solid ${C.gold}`, marginTop:"4px" }}>
               <div style={{ fontSize:"11px", color:C.muted, letterSpacing:"3px", marginBottom:"6px" }}>FRASE MAESTRA</div>
-              <div style={{ fontSize:"15px", color:C.red, fontStyle:"italic" }}>"{plan.frase_maestra}"</div>
+              <div style={{ fontSize:"15px", color:C.gold, fontStyle:"italic" }}>"{plan.frase_maestra}"</div>
             </div>
           )}
         </div>
@@ -377,7 +444,7 @@ Genera un microciclo de ${dias} días. Responde SOLO JSON sin markdown:
   );
 };
 
-// ── MAIN APP ───────────────────────────────────────────────────────────────────
+// ── MAIN APP ──
 export default function App() {
   const [allRows, setAllRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -406,7 +473,6 @@ export default function App() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Agrupar rows por atleta
   const athleteRows = {};
   allRows.forEach(row => {
     const name = row["Nombre del atleta"] || "";
@@ -427,7 +493,7 @@ export default function App() {
     const rows = athleteRows[name] || [];
     const prof = profiles[name] || {};
     const hero = prof.hero || clasificarHero(prof.fr, prof.cmj);
-    const vehicle = prof.vehicle || clasificarVehicle(prof.w1, prof.w2, prof.fi);
+    const vehicle = prof.vehicle || clasificarVehicle(prof.w1, prof.w2);
     const acwr = calcACWR(rows);
     const last7 = rows.slice(-7);
     const avgW = last7.map(r=>parseFloat(calcWellness(r))||0).filter(v=>v>0);
@@ -436,49 +502,27 @@ export default function App() {
     const prio = hero ? HERO_DATA[hero]?.prio : null;
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Informe ${name}</title>
-    <style>body{font-family:monospace;background:#fff;color:#111;padding:32px;max-width:800px;margin:0 auto}
-    h1{font-size:24px;letter-spacing:4px;color:#e63946;margin-bottom:4px}
+    <style>body{font-family:sans-serif;background:#fff;color:#111;padding:32px;max-width:800px;margin:0 auto}
+    h1{font-size:24px;letter-spacing:4px;color:#d4a843;margin-bottom:4px}
     h2{font-size:13px;letter-spacing:3px;color:#888;text-transform:uppercase;margin:20px 0 8px;border-bottom:1px solid #eee;padding-bottom:4px}
     .grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px}
-    .stat{background:#f8f8f8;padding:12px;border-left:3px solid #e63946}
+    .stat{background:#f8f8f8;padding:12px;border-left:3px solid #d4a843}
     .stat-label{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:2px}
     .stat-val{font-size:20px;font-weight:700;color:#111}
     .badge{display:inline-block;padding:3px 10px;border:1px solid;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-right:6px}
     table{width:100%;border-collapse:collapse;font-size:11px}
     th{background:#f0f0f0;padding:6px 8px;text-align:left;font-size:10px;letter-spacing:1px;text-transform:uppercase}
     td{padding:6px 8px;border-bottom:1px solid #f0f0f0}
-    .prio{padding:10px 14px;border-left:3px solid #e63946;background:#fff8f8;margin:4px 0;font-size:12px}
+    .prio{padding:10px 14px;border-left:3px solid #d4a843;background:#fffbf0;margin:4px 0;font-size:12px}
     @media print{body{padding:16px}}</style></head><body>
     <h1>ARES LAB</h1>
     <div style="font-size:13px;color:#888;margin-bottom:20px">Informe de atleta — ${name} — ${new Date().toLocaleDateString("es-ES")}</div>
-    <div style="margin-bottom:16px">
-      ${hero ? `<span class="badge" style="color:${HERO_DATA[hero]?.color};border-color:${HERO_DATA[hero]?.color}">${HERO_DATA[hero]?.icon} ${hero}</span>` : ""}
-      ${vehicle ? `<span class="badge" style="color:${VEHICLE_DATA[vehicle]?.color};border-color:${VEHICLE_DATA[vehicle]?.color}">${VEHICLE_DATA[vehicle]?.icon} ${vehicle}</span>` : ""}
-      ${prof.deporte ? `<span class="badge" style="color:#888;border-color:#ccc">${prof.deporte}</span>` : ""}
-      ${prof.fase ? `<span class="badge" style="color:#888;border-color:#ccc">${prof.fase}</span>` : ""}
-    </div>
     <div class="grid">
       <div class="stat"><div class="stat-label">Total Registros</div><div class="stat-val">${rows.length}</div></div>
       <div class="stat"><div class="stat-label">UA Total</div><div class="stat-val">${totalUA.toLocaleString()}</div></div>
       <div class="stat"><div class="stat-label">Wellness Med.</div><div class="stat-val">${avgWellness}/5</div></div>
       <div class="stat"><div class="stat-label">ACWR</div><div class="stat-val">${acwr.ratio || "–"}</div></div>
     </div>
-    ${prio ? `<h2>Prioridades ARES</h2>
-    <div class="prio"><strong>Dominante:</strong> ${prio.dom}</div>
-    <div class="prio"><strong>Mantenimiento:</strong> ${prio.mant}</div>
-    <div class="prio"><strong>Soporte:</strong> ${prio.sop}</div>` : ""}
-    <h2>Tests registrados</h2>
-    ${(prof.tests||[]).length > 0 ? `<table><tr><th>Fecha</th><th>CMJ</th><th>SJ</th><th>F.Rel</th><th>W1</th><th>W2</th><th>FI%</th><th>Perfil</th></tr>
-    ${(prof.tests||[]).map(t=>`<tr><td>${t.date}</td><td>${t.cmj||"–"}</td><td>${t.sj||"–"}</td><td>${t.fr||"–"}</td><td>${t.w1||"–"}</td><td>${t.w2||"–"}</td><td>${t.fi||"–"}</td><td>${t.hero||"–"}</td></tr>`).join("")}
-    </table>` : "<p style='color:#888;font-size:12px'>Sin tests registrados</p>"}
-    <h2>Últimas 20 sesiones</h2>
-    <table><tr><th>Fecha</th><th>Tipo</th><th>Min</th><th>RPE</th><th>UA</th><th>Wellness</th><th>Notas</th></tr>
-    ${rows.slice(-20).reverse().map(r=>{
-      const ua=calcUA(r["Minutos totales entrenados hoy"],r["RPE del día (Esfuerzo)"]);
-      const w=calcWellness(r);
-      return `<tr><td>${fmtDate(r["Marca temporal"])}</td><td>${(r["Tipo de día de entrenamiento"]||"–").split("/")[0]}</td><td>${r["Minutos totales entrenados hoy"]||"–"}</td><td>${r["RPE del día (Esfuerzo)"]||"–"}</td><td><strong>${ua||"–"}</strong></td><td>${w||"–"}</td><td style="color:#888">${r["Notas / molestias (opcional)"]||""}</td></tr>`;
-    }).join("")}
-    </table>
     <script>window.onload=()=>{window.print()}</script></body></html>`;
 
     const win = window.open("","_blank");
@@ -486,24 +530,22 @@ export default function App() {
     win.document.close();
   };
 
-  // ── NAV ────────────────────────────────────────────────────────────────────
   const navItems = [
     { id:"dashboard", label:"Dashboard" },
     { id:"cuadrante", label:"Cuadrante" },
     { id:"competiciones", label:"Competiciones" },
   ];
 
-  // ── DASHBOARD ──────────────────────────────────────────────────────────────
+  // ── DASHBOARD ──
   const DashboardView = () => (
     <div>
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)", gap:"12px", marginBottom:"24px" }}>
-        <StatBox label="Atletas" value={allAthleteNames.length} color={C.cyan} />
+        <StatBox label="Atletas" value={allAthleteNames.length} color={C.gold} />
         <StatBox label="Registros hoy" value={`${registeredToday.length}/${allAthleteNames.length}`} color={C.green} />
-        <StatBox label="Total registros" value={allRows.length} color={C.gold} />
+        <StatBox label="Total registros" value={allRows.length} color={C.goldBright} />
         <StatBox label="Última sync" value={lastSync ? lastSync.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"}) : "–"} color={C.muted} />
       </div>
 
-      {/* Alertas */}
       {(() => {
         const sin = allAthleteNames.filter(n => !registeredToday.includes(n));
         const urgComps = [];
@@ -531,14 +573,13 @@ export default function App() {
         );
       })()}
 
-      {/* Grid atletas */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:"10px" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:"10px" }}>
         {allAthleteNames.map(name => {
           const rows = athleteRows[name]||[];
           const last = rows[rows.length-1];
           const prof = profiles[name]||{};
           const hero = prof.hero || clasificarHero(prof.fr, prof.cmj);
-          const vehicle = prof.vehicle || clasificarVehicle(prof.w1, prof.w2, prof.fi);
+          const vehicle = prof.vehicle || clasificarVehicle(prof.w1, prof.w2);
           const hInfo = HERO_DATA[hero];
           const vInfo = VEHICLE_DATA[vehicle];
           const ua = last ? calcUA(last["Minutos totales entrenados hoy"], last["RPE del día (Esfuerzo)"]) : 0;
@@ -550,13 +591,13 @@ export default function App() {
 
           return (
             <div key={name} onClick={()=>{setSelected(name);setMainView("athlete");setAthleteTab("overview");}}
-              style={{ background:C.card, border:`1px solid ${hasToday?C.green+"44":C.border}`, borderLeft:`3px solid ${hInfo?.color||C.borderBright}`, padding:"14px", cursor:"pointer", position:"relative", transition:"background 0.15s" }}
+              style={{ background:C.card, border:`1px solid ${hasToday?C.gold+"44":C.border}`, borderLeft:`3px solid ${hInfo?.color||C.gold}`, padding:"14px", cursor:"pointer", position:"relative", transition:"background 0.15s" }}
               onMouseEnter={e=>e.currentTarget.style.background=C.cardHover}
               onMouseLeave={e=>e.currentTarget.style.background=C.card}
             >
               {hasToday && <div style={{ position:"absolute", top:"10px", right:"10px", width:"7px", height:"7px", borderRadius:"50%", background:C.green, boxShadow:`0 0 5px ${C.green}` }}/>}
               <div style={{ display:"flex", alignItems:"center", gap:"9px", marginBottom:"9px" }}>
-                <div style={{ width:"32px", height:"32px", borderRadius:"50%", background:(hInfo?.color||C.muted)+"22", border:`2px solid ${hInfo?.color||C.muted}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"14px" }}>{hInfo?.icon||"👤"}</div>
+                <div style={{ width:"32px", height:"32px", borderRadius:"50%", background:(hInfo?.color||C.gold)+"22", border:`2px solid ${hInfo?.color||C.gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"14px" }}>{hInfo?.icon||"👤"}</div>
                 <div>
                   <div style={{ fontSize:"13px", fontWeight:"600", color:C.text }}>{name}</div>
                   <div style={{ fontSize:"10px", color:C.muted }}>{prof.deporte||"–"} · {prof.fase||"off-camp"}</div>
@@ -571,9 +612,7 @@ export default function App() {
                 {w && <div><div style={{ fontSize:"9px", color:C.muted, letterSpacing:"1px" }}>WELLNESS</div><div style={{ fontSize:"16px", fontWeight:"700", color:parseFloat(w)>=3.5?C.green:parseFloat(w)>=2.5?C.yellow:C.red }}>{w}</div></div>}
                 {acwr.ratio && <div><div style={{ fontSize:"9px", color:C.muted, letterSpacing:"1px" }}>ACWR</div><div style={{ fontSize:"16px", fontWeight:"700", color:parseFloat(acwr.ratio)>1.3?C.red:parseFloat(acwr.ratio)<0.8?C.yellow:C.green }}>{acwr.ratio}</div></div>}
               </div>
-              {nextComp && (
-                <div style={{ fontSize:"10px", color:C.yellow, marginTop:"4px" }}>🥊 {nextComp.evento} — {Math.ceil((new Date(nextComp.date)-new Date())/86400000)}d</div>
-              )}
+              {nextComp && <div style={{ fontSize:"10px", color:C.gold, marginTop:"4px" }}>🥊 {nextComp.evento} — {Math.ceil((new Date(nextComp.date)-new Date())/86400000)}d</div>}
               <div style={{ marginTop:"6px", fontSize:"10px", color:C.muted }}>{rows.length} registros</div>
             </div>
           );
@@ -583,19 +622,19 @@ export default function App() {
         <div style={{ textAlign:"center", padding:"60px", color:C.muted }}>
           <div style={{ fontSize:"28px", marginBottom:"10px" }}>📋</div>
           <div style={{ fontSize:"13px", letterSpacing:"2px" }}>{error || "Conecta el Google Sheet para ver los atletas"}</div>
-          <button onClick={fetchData} style={{ marginTop:"16px", padding:"10px 24px", background:C.red, border:"none", color:"#fff", cursor:"pointer", fontSize:"12px", letterSpacing:"2px", fontFamily:"inherit" }}>REINTENTAR</button>
+          <button onClick={fetchData} style={{ marginTop:"16px", padding:"10px 24px", background:C.gold, border:"none", color:"#000", cursor:"pointer", fontSize:"12px", letterSpacing:"2px", fontFamily:"inherit", fontWeight:"700" }}>REINTENTAR</button>
         </div>
       )}
     </div>
   );
 
-  // ── ATHLETE VIEW ───────────────────────────────────────────────────────────
+  // ── ATHLETE VIEW ──
   const AthleteView = () => {
     const name = selected;
     const rows = (athleteRows[name]||[]).slice().sort((a,b)=>new Date(a["Marca temporal"])-new Date(b["Marca temporal"]));
     const prof = profiles[name]||{};
     const hero = prof.hero || clasificarHero(prof.fr, prof.cmj);
-    const vehicle = prof.vehicle || clasificarVehicle(prof.w1, prof.w2, prof.fi);
+    const vehicle = prof.vehicle || clasificarVehicle(prof.w1, prof.w2);
     const hInfo = HERO_DATA[hero];
     const vInfo = VEHICLE_DATA[vehicle];
     const last7 = rows.slice(-7);
@@ -612,10 +651,9 @@ export default function App() {
 
     return (
       <div>
-        {/* Header atleta */}
         <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"20px", flexWrap:"wrap" }}>
           <button onClick={()=>setMainView("dashboard")} style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.muted, padding:"7px 14px", cursor:"pointer", fontSize:"11px", fontFamily:"inherit" }}>← VOLVER</button>
-          <div style={{ width:"44px", height:"44px", borderRadius:"50%", background:(hInfo?.color||C.muted)+"22", border:`2px solid ${hInfo?.color||C.muted}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px" }}>{hInfo?.icon||"👤"}</div>
+          <div style={{ width:"44px", height:"44px", borderRadius:"50%", background:(hInfo?.color||C.gold)+"22", border:`2px solid ${hInfo?.color||C.gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px" }}>{hInfo?.icon||"👤"}</div>
           <div style={{ flex:1 }}>
             <div style={{ fontSize:"18px", fontWeight:"700", color:C.text }}>{name}</div>
             <div style={{ display:"flex", gap:"6px", marginTop:"4px" }}>
@@ -630,10 +668,9 @@ export default function App() {
           </div>
         </div>
 
-        {/* Tabs */}
         <div style={{ display:"flex", gap:"4px", marginBottom:"20px", flexWrap:"wrap" }}>
           {tabs.map(([t,l]) => (
-            <button key={t} onClick={()=>setAthleteTab(t)} style={{ padding:"7px 14px", background:athleteTab===t?C.red:"transparent", border:`1px solid ${athleteTab===t?C.red:C.border}`, color:athleteTab===t?"#fff":C.muted, cursor:"pointer", fontSize:"11px", letterSpacing:"2px", textTransform:"uppercase", fontFamily:"inherit" }}>{l}</button>
+            <button key={t} onClick={()=>setAthleteTab(t)} style={{ padding:"7px 14px", background:athleteTab===t?C.gold:"transparent", border:`1px solid ${athleteTab===t?C.gold:C.border}`, color:athleteTab===t?"#000":C.muted, cursor:"pointer", fontSize:"11px", letterSpacing:"2px", textTransform:"uppercase", fontFamily:"inherit", fontWeight:athleteTab===t?"700":"400" }}>{l}</button>
           ))}
         </div>
 
@@ -641,9 +678,9 @@ export default function App() {
         {athleteTab === "overview" && (
           <div>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)", gap:"12px", marginBottom:"20px" }}>
-              <StatBox label="Registros" value={rows.length} color={C.cyan} />
+              <StatBox label="Registros" value={rows.length} color={C.gold} />
               <StatBox label="UA Hoy" value={todayUA||"–"} color={sem.color} sub={sem.label} />
-              <StatBox label="UA Total" value={totalUA.toLocaleString()} color={C.gold} />
+              <StatBox label="UA Total" value={totalUA.toLocaleString()} color={C.goldBright} />
               <StatBox label="Wellness med." value={avgW} color={parseFloat(avgW)>=3.5?C.green:parseFloat(avgW)>=2.5?C.yellow:C.red} sub="/ 5.0" />
             </div>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:"16px", marginBottom:"16px" }}>
@@ -661,59 +698,38 @@ export default function App() {
                     </div>
                     {prio && (
                       <div>
-                        {[["Dominante", prio.dom, C.red],["Mantenimiento", prio.mant, C.yellow],["Soporte", prio.sop, C.green]].map(([l,v,c]) => (
-                          <div key={l} style={{ fontSize:"12px", marginBottom:"4px" }}><span style={{ color:c }}>●</span> <span style={{ color:C.muted }}>{l}:</span> <span style={{ color:C.text }}>{v}</span></div>
+                        {[["Dominante",prio.dom,C.gold],["Mantenimiento",prio.mant,C.text],["Soporte",prio.sop,C.muted]].map(([l,v,c])=>(
+                          <div key={l} style={{ borderLeft:`3px solid ${c}`, padding:"8px 14px", marginBottom:"4px", background:C.surface }}>
+                            <span style={{ fontSize:"10px", color:C.muted, letterSpacing:"2px" }}>{l}: </span>
+                            <span style={{ fontSize:"12px", color:c }}>{v}</span>
+                          </div>
                         ))}
                       </div>
                     )}
-                    {vehicle && (
-                      <div style={{ marginTop:"14px", paddingTop:"14px", borderTop:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:"8px" }}>
-                        <span style={{ fontSize:"20px" }}>{vInfo?.icon}</span>
-                        <div>
-                          <div style={{ fontSize:"13px", fontWeight:"600", color:vInfo?.color }}>{vehicle}</div>
-                          <div style={{ fontSize:"11px", color:C.muted }}>{vInfo?.desc}</div>
-                        </div>
-                      </div>
-                    )}
                   </>
-                ) : (
-                  <div style={{ fontSize:"12px", color:C.muted }}>Sin clasificar. Añade CMJ y Fuerza Relativa en "Editar perfil".</div>
-                )}
+                ) : <div style={{ color:C.muted, fontSize:"12px" }}>Añade CMJ y FR para clasificar el perfil neuromuscular.</div>}
               </div>
-              {/* Últimas sesiones */}
+              {/* Perfil Energético */}
               <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px" }}>
-                <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"14px", textTransform:"uppercase" }}>Últimas 7 sesiones</div>
-                {last7.length === 0 ? <div style={{ fontSize:"12px", color:C.muted }}>Sin datos</div> :
-                  last7.slice().reverse().map((r,i) => {
-                    const ua = calcUA(r["Minutos totales entrenados hoy"], r["RPE del día (Esfuerzo)"]);
-                    const w = calcWellness(r);
-                    const s = semaforo(ua);
-                    return (
-                      <div key={i} style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"7px", padding:"7px 10px", background:C.surface }}>
-                        <div style={{ width:"7px", height:"7px", borderRadius:"50%", background:s.color, flexShrink:0 }}/>
-                        <div style={{ flex:1, fontSize:"11px", color:C.text }}>{(r["Tipo de día de entrenamiento"]||"–").split("/")[0]}</div>
-                        <div style={{ fontSize:"11px", color:s.color, fontWeight:"600" }}>{ua} UA</div>
-                        {w && <div style={{ fontSize:"11px", color:C.muted }}>W:{w}</div>}
-                        <div style={{ fontSize:"10px", color:C.muted }}>{fmtDate(r["Marca temporal"])}</div>
-                      </div>
-                    );
-                  })}
+                <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"14px", textTransform:"uppercase" }}>Perfil Energético</div>
+                {vehicle ? (
+                  <WingateCard w1={prof.w1} w2={prof.w2} />
+                ) : <div style={{ color:C.muted, fontSize:"12px" }}>Añade W1 y W2 del Doble Wingate para ver el perfil energético.</div>}
               </div>
             </div>
             {/* Wellness grid 7d */}
             {last7.length > 0 && (
               <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px" }}>
                 <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"14px", textTransform:"uppercase" }}>Wellness & Carga — Últimos 7 días</div>
-                <div style={{ display:"grid", gridTemplateColumns:`repeat(${last7.length},1fr)`, gap:"8px" }}>
+                <div style={{ display:"grid", gridTemplateColumns:`repeat(${Math.min(last7.length,7)},1fr)`, gap:"8px" }}>
                   {last7.map((r,i) => {
                     const ua = calcUA(r["Minutos totales entrenados hoy"], r["RPE del día (Esfuerzo)"]);
                     const w = parseFloat(calcWellness(r))||0;
                     const s = semaforo(ua);
                     return (
-                      <div key={i} style={{ background:C.surface, padding:"10px 8px", textAlign:"center" }}>
+                      <div key={i} style={{ background:C.surface, padding:"10px 8px", textAlign:"center", borderTop:`2px solid ${s.color}` }}>
                         <div style={{ fontSize:"9px", color:C.muted, marginBottom:"5px" }}>{fmtDate(r["Marca temporal"])}</div>
-                        <div style={{ width:"7px", height:"7px", borderRadius:"50%", background:s.color, margin:"0 auto 5px" }}/>
-                        <div style={{ fontSize:"13px", fontWeight:"700", color:s.color }}>{ua}</div>
+                        <div style={{ fontSize:"15px", fontWeight:"700", color:s.color }}>{ua}</div>
                         <div style={{ fontSize:"9px", color:C.muted }}>UA</div>
                         {w>0 && <>
                           <div style={{ height:"1px", background:C.border, margin:"5px 0" }}/>
@@ -732,8 +748,67 @@ export default function App() {
         {/* ── CARGA ── */}
         {athleteTab === "carga" && (
           <div>
-            <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px", marginBottom:"16px" }}>
-              <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"14px", textTransform:"uppercase" }}>Historial de Carga</div>
+            {/* Weekly summary cards */}
+            {(() => {
+              const weeks = {};
+              rows.forEach(r => {
+                const k = getWeekKey(r["Marca temporal"]);
+                if (!k) return;
+                if (!weeks[k]) weeks[k] = { ua: 0, sessions: 0, wellnessSum: 0, wellnessCount: 0, days: [] };
+                const ua = calcUA(r["Minutos totales entrenados hoy"], r["RPE del día (Esfuerzo)"]);
+                const w = parseFloat(calcWellness(r))||0;
+                weeks[k].ua += ua;
+                weeks[k].sessions++;
+                if (w>0) { weeks[k].wellnessSum += w; weeks[k].wellnessCount++; }
+                weeks[k].days.push({ date: r["Marca temporal"], ua, wellness: w, tipo: (r["Tipo de día de entrenamiento"]||"").split("/")[0] });
+              });
+              const entries = Object.entries(weeks).slice(-8);
+              const maxUA = Math.max(...entries.map(([,v])=>v.ua), 1);
+              return (
+                <>
+                  <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"16px", textTransform:"uppercase" }}>Carga Semanal</div>
+                  <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:"12px", marginBottom:"20px" }}>
+                    {entries.reverse().map(([week, data]) => {
+                      const avgW = data.wellnessCount > 0 ? (data.wellnessSum/data.wellnessCount).toFixed(1) : "–";
+                      const avgUA = Math.round(data.ua / (data.sessions||1));
+                      const s = semaforo(avgUA);
+                      const barWidth = (data.ua/maxUA)*100;
+                      return (
+                        <div key={week} style={{ background:C.card, border:`1px solid ${C.border}`, padding:"16px", borderLeft:`3px solid ${s.color}` }}>
+                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"10px" }}>
+                            <div style={{ fontSize:"13px", fontWeight:"700", color:C.text }}>
+                              {week.split("-W")[1] ? `Semana ${week.split("-W")[1]}` : week}
+                            </div>
+                            <Badge label={s.label} color={s.color} small />
+                          </div>
+                          <div style={{ display:"flex", gap:"16px", marginBottom:"10px" }}>
+                            <div><div style={{ fontSize:"9px", color:C.muted, letterSpacing:"1px" }}>UA TOTAL</div><div style={{ fontSize:"20px", fontWeight:"700", color:s.color }}>{data.ua}</div></div>
+                            <div><div style={{ fontSize:"9px", color:C.muted, letterSpacing:"1px" }}>SESIONES</div><div style={{ fontSize:"20px", fontWeight:"700", color:C.text }}>{data.sessions}</div></div>
+                            <div><div style={{ fontSize:"9px", color:C.muted, letterSpacing:"1px" }}>UA/DÍA</div><div style={{ fontSize:"20px", fontWeight:"700", color:C.textDim }}>{avgUA}</div></div>
+                            <div><div style={{ fontSize:"9px", color:C.muted, letterSpacing:"1px" }}>WELLNESS</div><div style={{ fontSize:"20px", fontWeight:"700", color:parseFloat(avgW)>=3.5?C.green:parseFloat(avgW)>=2.5?C.yellow:C.red }}>{avgW}</div></div>
+                          </div>
+                          {/* Mini bar */}
+                          <div style={{ background:C.surface, height:"6px", borderRadius:"3px", overflow:"hidden" }}>
+                            <div style={{ width:`${barWidth}%`, height:"100%", background:s.color, borderRadius:"3px", transition:"width 0.4s" }}/>
+                          </div>
+                          {/* Mini daily dots */}
+                          <div style={{ display:"flex", gap:"4px", marginTop:"8px" }}>
+                            {data.days.map((d,i) => {
+                              const ds = semaforo(d.ua);
+                              return <div key={i} title={`${fmtDate(d.date)} - ${d.ua}UA`} style={{ width:"12px", height:"12px", borderRadius:"2px", background:ds.color+"66", border:`1px solid ${ds.color}` }}/>;
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
+
+            {/* Daily table */}
+            <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px" }}>
+              <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"14px", textTransform:"uppercase" }}>Historial Diario</div>
               <div style={{ overflowX:"auto" }}>
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
                   <thead>
@@ -806,7 +881,7 @@ export default function App() {
                 <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px" }}>
                   <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"16px", textTransform:"uppercase" }}>Carga Semanal (UA total)</div>
                   <div style={{ display:"flex", alignItems:"flex-end", gap:"6px", height:"120px" }}>
-                    {entries.map(([week, ua], i) => {
+                    {entries.map(([week, ua]) => {
                       const h = (ua/maxUA)*100;
                       const s = semaforo(ua/7);
                       return (
@@ -826,12 +901,12 @@ export default function App() {
 
         {/* ── TESTS ── */}
         {athleteTab === "tests" && (
-          <TestsTab name={name} prof={prof} onSave={(data)=>updateProfile(name, data)} />
+          <TestsTab name={name} prof={prof} onSave={(data)=>updateProfile(name, data)} isMobile={isMobile} />
         )}
 
         {/* ── COMP ── */}
         {athleteTab === "comp" && (
-          <CompTab name={name} prof={prof} onSave={(data)=>updateProfile(name, data)} />
+          <CompTab name={name} prof={prof} onSave={(data)=>updateProfile(name, data)} isMobile={isMobile} />
         )}
 
         {/* ── IA ── */}
@@ -842,76 +917,147 @@ export default function App() {
     );
   };
 
-  // ── TESTS TAB ──────────────────────────────────────────────────────────────
-  const TestsTab = ({ name, prof, onSave }) => {
-    const [nt, setNt] = useState({ date:"", cmj:"", sj:"", fr:"", w1:"", w2:"", fi:"", notas:"" });
+  // ── TESTS TAB ──
+  const TestsTab = ({ name, prof, onSave, isMobile }) => {
+    const [nt, setNt] = useState({ date:"", cmj:"", sj:"", fr:"", rsi:"", w1:"", w2:"", pesoMuerto:"", pressBanca:"", dominadaLastrada:"", sentadillaBulgara:"", colgarse:"", notas:"" });
     const tests = prof.tests || [];
+
     const addTest = () => {
       if (!nt.date) return;
       const hero = clasificarHero(nt.fr, nt.cmj);
-      const vehicle = clasificarVehicle(nt.w1, nt.w2, nt.fi);
-      onSave({ tests:[...tests,{...nt,hero,vehicle}], hero, vehicle, fr:nt.fr, cmj:nt.cmj, w1:nt.w1, w2:nt.w2, fi:nt.fi });
-      setNt({ date:"", cmj:"", sj:"", fr:"", w1:"", w2:"", fi:"", notas:"" });
+      const vehicle = clasificarVehicle(nt.w1, nt.w2);
+      const wingateStats = calcWingateStats(nt.w1, nt.w2);
+      const fi = wingateStats ? wingateStats.fi : "";
+      onSave({
+        tests:[...tests,{...nt, fi, hero, vehicle}],
+        hero, vehicle, fr:nt.fr, cmj:nt.cmj, rsi:nt.rsi,
+        w1:nt.w1, w2:nt.w2, fi,
+        pesoMuerto:nt.pesoMuerto, pressBanca:nt.pressBanca,
+        dominadaLastrada:nt.dominadaLastrada, sentadillaBulgara:nt.sentadillaBulgara,
+        colgarse:nt.colgarse
+      });
+      setNt({ date:"", cmj:"", sj:"", fr:"", rsi:"", w1:"", w2:"", pesoMuerto:"", pressBanca:"", dominadaLastrada:"", sentadillaBulgara:"", colgarse:"", notas:"" });
     };
+
+    const testFields = [
+      ["date","Fecha","date"],
+      ["cmj","CMJ (cm)","number"],
+      ["sj","SJ (cm)","number"],
+      ["rsi","RSI","number"],
+      ["fr","Fuerza Rel. (xBW)","number"],
+      ["w1","Sprint 1 (W/kg)","number"],
+      ["w2","Sprint 2 (W/kg)","number"],
+    ];
+
+    const strengthFields = [
+      ["pesoMuerto","Peso Muerto (kg)","number"],
+      ["pressBanca","Press Banca (kg)","number"],
+      ["dominadaLastrada","Dominada Lastrada (kg)","number"],
+      ["sentadillaBulgara","Sent. Búlgara (kg×2)","number"],
+      ["colgarse","Colgarse Barra (seg)","number"],
+    ];
+
     return (
       <div>
+        {/* New Test Form */}
         <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px", marginBottom:"16px" }}>
           <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"14px", textTransform:"uppercase" }}>Nuevo Test</div>
-          <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)", gap:"10px" }}>
-            {[["date","Fecha","date"],["cmj","CMJ (cm)","number"],["sj","SJ (cm)","number"],["fr","Fuerza Rel. (xBW)","number"],["w1","W1 (W)","number"],["w2","W2 (W)","number"],["fi","FI (%)","number"],["notas","Notas","text"]].map(([k,l,t])=>(
-              <div key={k} style={{ gridColumn:k==="notas"?"span 2":"span 1" }}>
+
+          <div style={{ fontSize:"10px", letterSpacing:"2px", color:C.gold, textTransform:"uppercase", marginBottom:"8px" }}>Rendimiento</div>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)", gap:"10px", marginBottom:"16px" }}>
+            {testFields.map(([k,l,t])=>(
+              <div key={k}>
                 <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{l}</label>
-                <input type={t} value={nt[k]} onChange={e=>setNt(p=>({...p,[k]:e.target.value}))} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'DM Mono',monospace", boxSizing:"border-box", outline:"none" }}/>
+                <input type={t} value={nt[k]} onChange={e=>setNt(p=>({...p,[k]:e.target.value}))} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'Inter',sans-serif", boxSizing:"border-box", outline:"none" }}/>
               </div>
             ))}
           </div>
-          {nt.fr || nt.cmj ? (() => {
-            const h = clasificarHero(nt.fr, nt.cmj);
-            const v = clasificarVehicle(nt.w1, nt.w2, nt.fi);
-            return h ? (
-              <div style={{ marginTop:"12px", padding:"10px", background:C.surface, display:"flex", gap:"8px" }}>
-                <span style={{ fontSize:"11px", color:C.muted, letterSpacing:"2px" }}>CLASIFICACIÓN:</span>
-                {h && <Badge label={`${HERO_DATA[h]?.icon} ${h}`} color={HERO_DATA[h]?.color||C.muted} small />}
-                {v && <Badge label={`${VEHICLE_DATA[v]?.icon} ${v}`} color={VEHICLE_DATA[v]?.color||C.muted} small />}
+
+          <div style={{ fontSize:"10px", letterSpacing:"2px", color:C.gold, textTransform:"uppercase", marginBottom:"8px" }}>Fuerza</div>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(5,1fr)", gap:"10px", marginBottom:"16px" }}>
+            {strengthFields.map(([k,l,t])=>(
+              <div key={k}>
+                <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{l}</label>
+                <input type={t} value={nt[k]} onChange={e=>setNt(p=>({...p,[k]:e.target.value}))} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'Inter',sans-serif", boxSizing:"border-box", outline:"none" }}/>
               </div>
-            ) : null;
-          })() : null}
-          <button onClick={addTest} style={{ marginTop:"14px", padding:"9px 22px", background:C.red, border:"none", color:"#fff", cursor:"pointer", fontSize:"11px", letterSpacing:"2px", fontFamily:"inherit" }}>+ GUARDAR TEST</button>
+            ))}
+          </div>
+
+          <div style={{ marginBottom:"12px" }}>
+            <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>Notas</label>
+            <input type="text" value={nt.notas} onChange={e=>setNt(p=>({...p,notas:e.target.value}))} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'Inter',sans-serif", boxSizing:"border-box", outline:"none" }}/>
+          </div>
+
+          {/* Live classification preview */}
+          {(nt.fr || nt.cmj || nt.w1) && (() => {
+            const h = clasificarHero(nt.fr, nt.cmj);
+            const v = clasificarVehicle(nt.w1, nt.w2);
+            const ws = calcWingateStats(nt.w1, nt.w2);
+            return (
+              <div style={{ padding:"12px 16px", background:C.surface, border:`1px solid ${C.border}`, marginBottom:"12px" }}>
+                <div style={{ display:"flex", gap:"8px", flexWrap:"wrap", alignItems:"center" }}>
+                  <span style={{ fontSize:"11px", color:C.muted, letterSpacing:"2px" }}>CLASIFICACIÓN:</span>
+                  {h && <Badge label={`${HERO_DATA[h]?.icon} ${h}`} color={HERO_DATA[h]?.color||C.muted} small />}
+                  {v && <Badge label={`${VEHICLE_DATA[v]?.icon} ${v}`} color={VEHICLE_DATA[v]?.color||C.muted} small />}
+                  {ws && <span style={{ fontSize:"11px", color:C.textDim }}>Ratio: {ws.ratioPercent}% · FI: {ws.fi}%</span>}
+                </div>
+              </div>
+            );
+          })()}
+
+          <button onClick={addTest} style={{ padding:"9px 22px", background:C.gold, border:"none", color:"#000", cursor:"pointer", fontSize:"11px", letterSpacing:"2px", fontFamily:"inherit", fontWeight:"700" }}>+ GUARDAR TEST</button>
         </div>
+
+        {/* Wingate result if data exists */}
+        {prof.w1 && prof.w2 && (
+          <div style={{ marginBottom:"16px" }}>
+            <WingateCard w1={prof.w1} w2={prof.w2} />
+          </div>
+        )}
+
+        {/* Test history */}
         {tests.length > 0 && (
           <>
             <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px", marginBottom:"16px" }}>
-              <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"14px", textTransform:"uppercase" }}>Historial</div>
+              <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"14px", textTransform:"uppercase" }}>Historial de Tests</div>
               <div style={{ overflowX:"auto" }}>
-                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"12px" }}>
-                  <thead><tr style={{ borderBottom:`1px solid ${C.border}` }}>{["Fecha","CMJ","SJ","F.Rel","W1","W2","FI%","Perfil","Vehículo"].map(h=><th key={h} style={{ padding:"7px 9px", textAlign:"left", color:C.muted, fontSize:"10px", letterSpacing:"1px", textTransform:"uppercase" }}>{h}</th>)}</tr></thead>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"11px" }}>
+                  <thead><tr style={{ borderBottom:`1px solid ${C.border}` }}>
+                    {["Fecha","CMJ","SJ","RSI","F.Rel","S1","S2","FI%","P.Muerto","Banca","Dom.Last","S.Búlg","Barra","Perfil","Vehículo"].map(h=>
+                      <th key={h} style={{ padding:"6px 7px", textAlign:"left", color:C.muted, fontSize:"9px", letterSpacing:"1px", textTransform:"uppercase" }}>{h}</th>
+                    )}
+                  </tr></thead>
                   <tbody>
                     {tests.map((t,i)=>(
                       <tr key={i} style={{ borderBottom:`1px solid ${C.border}20` }}>
-                        <td style={{ padding:"7px 9px", color:C.textDim }}>{t.date}</td>
-                        {["cmj","sj","fr","w1","w2","fi"].map(k=><td key={k} style={{ padding:"7px 9px", color:k==="cmj"?C.cyan:C.text }}>{t[k]||"–"}</td>)}
-                        <td style={{ padding:"7px 9px" }}>{t.hero?<Badge label={t.hero} color={HERO_DATA[t.hero]?.color||C.muted} small />:"–"}</td>
-                        <td style={{ padding:"7px 9px" }}>{t.vehicle?<Badge label={t.vehicle} color={VEHICLE_DATA[t.vehicle]?.color||C.muted} small />:"–"}</td>
+                        <td style={{ padding:"6px 7px", color:C.textDim }}>{t.date}</td>
+                        {["cmj","sj","rsi","fr","w1","w2","fi","pesoMuerto","pressBanca","dominadaLastrada","sentadillaBulgara","colgarse"].map(k=>
+                          <td key={k} style={{ padding:"6px 7px", color:C.text }}>{t[k]||"–"}</td>
+                        )}
+                        <td style={{ padding:"6px 7px" }}>{t.hero?<Badge label={t.hero} color={HERO_DATA[t.hero]?.color||C.muted} small />:"–"}</td>
+                        <td style={{ padding:"6px 7px" }}>{t.vehicle?<Badge label={`${VEHICLE_DATA[t.vehicle]?.icon} ${t.vehicle}`} color={VEHICLE_DATA[t.vehicle]?.color||C.muted} small />:"–"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             </div>
+
+            {/* Evolution sparklines */}
             {tests.length > 1 && (
               <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px" }}>
                 <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"14px", textTransform:"uppercase" }}>Evolución</div>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"16px" }}>
-                  {[["CMJ (cm)","cmj",C.cyan],["SJ (cm)","sj",C.green],["Fuerza Relativa","fr",C.red]].map(([label,key,color])=>{
+                <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr 1fr", gap:"12px" }}>
+                  {[["CMJ","cmj",C.gold],["SJ","sj",C.goldBright],["RSI","rsi",C.cyan],["F.Rel","fr",C.red],["P.Muerto","pesoMuerto",C.green],["Banca","pressBanca",C.yellow],["Dom.Last","dominadaLastrada",C.cyan],["S.Búlg","sentadillaBulgara",C.gold]].map(([label,key,color])=>{
                     const vals = tests.map(t=>parseFloat(t[key])).filter(v=>!isNaN(v));
                     if (vals.length < 2) return null;
                     const delta = vals[vals.length-1] - vals[0];
                     return (
-                      <div key={key} style={{ background:C.surface, padding:"14px" }}>
-                        <div style={{ fontSize:"11px", color:C.muted, marginBottom:"6px" }}>{label}</div>
-                        <div style={{ display:"flex", alignItems:"baseline", gap:"8px", marginBottom:"8px" }}>
-                          <div style={{ fontSize:"22px", fontWeight:"700", color }}>{vals[vals.length-1]}</div>
-                          <div style={{ fontSize:"12px", color:delta>=0?C.green:C.red }}>{delta>=0?"+":""}{delta.toFixed(1)}</div>
+                      <div key={key} style={{ background:C.surface, padding:"12px" }}>
+                        <div style={{ fontSize:"10px", color:C.muted, marginBottom:"4px" }}>{label}</div>
+                        <div style={{ display:"flex", alignItems:"baseline", gap:"6px", marginBottom:"6px" }}>
+                          <div style={{ fontSize:"18px", fontWeight:"700", color }}>{vals[vals.length-1]}</div>
+                          <div style={{ fontSize:"11px", color:delta>=0?C.green:C.red }}>{delta>=0?"+":""}{delta.toFixed(1)}</div>
                         </div>
                         <Sparkline data={vals} color={color} />
                       </div>
@@ -926,8 +1072,8 @@ export default function App() {
     );
   };
 
-  // ── COMP TAB ───────────────────────────────────────────────────────────────
-  const CompTab = ({ name, prof, onSave }) => {
+  // ── COMP TAB ──
+  const CompTab = ({ name, prof, onSave, isMobile }) => {
     const [nc, setNc] = useState({ date:"", evento:"", categoria:"", resultado:"", notas:"" });
     const comps = prof.competiciones || [];
     const addComp = () => { if (!nc.date||!nc.evento) return; onSave({ competiciones:[...comps,nc] }); setNc({ date:"", evento:"", categoria:"", resultado:"", notas:"" }); };
@@ -948,7 +1094,7 @@ export default function App() {
                 {c.notas && <div style={{ fontSize:"11px", color:C.muted, marginTop:"2px" }}>{c.notas}</div>}
               </div>
               <div style={{ textAlign:"right" }}>
-                <div style={{ fontSize:"13px", fontWeight:"700", color:urg?C.red:C.yellow }}>{dU(c.date)}</div>
+                <div style={{ fontSize:"13px", fontWeight:"700", color:urg?C.red:C.gold }}>{dU(c.date)}</div>
                 {urg && <div style={{ fontSize:"10px", color:C.muted, marginTop:"2px" }}>{d<=7?"PEAKING":"CAMP"}</div>}
               </div>
             </div>
@@ -960,11 +1106,11 @@ export default function App() {
             {[["date","Fecha","date"],["evento","Evento","text"],["categoria","Categoría","text"],["resultado","Resultado","text"],["notas","Notas","text"]].map(([k,l,t])=>(
               <div key={k}>
                 <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{l}</label>
-                <input type={t} value={nc[k]} onChange={e=>setNc(p=>({...p,[k]:e.target.value}))} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'DM Mono',monospace", boxSizing:"border-box", outline:"none" }}/>
+                <input type={t} value={nc[k]} onChange={e=>setNc(p=>({...p,[k]:e.target.value}))} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'Inter',sans-serif", boxSizing:"border-box", outline:"none" }}/>
               </div>
             ))}
           </div>
-          <button onClick={addComp} style={{ marginTop:"14px", padding:"9px 22px", background:C.red, border:"none", color:"#fff", cursor:"pointer", fontSize:"11px", letterSpacing:"2px", fontFamily:"inherit" }}>+ AÑADIR</button>
+          <button onClick={addComp} style={{ marginTop:"14px", padding:"9px 22px", background:C.gold, border:"none", color:"#000", cursor:"pointer", fontSize:"11px", letterSpacing:"2px", fontFamily:"inherit", fontWeight:"700" }}>+ AÑADIR</button>
         </div>
         {past.length > 0 && (
           <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px" }}>
@@ -984,93 +1130,115 @@ export default function App() {
     );
   };
 
-  // ── EDIT MODAL ─────────────────────────────────────────────────────────────
+  // ── EDIT MODAL ──
   const EditModal = () => {
     const name = editingAthlete;
     const [form, setForm] = useState({ deporte:"MMA", fase:"off-camp", ...(profiles[name]||{}) });
     const setF = (k,v) => setForm(p=>({...p,[k]:v}));
     const save = () => {
       const hero = clasificarHero(form.fr, form.cmj);
-      const vehicle = clasificarVehicle(form.w1, form.w2, form.fi);
-      setProfiles(prev=>({...prev,[name]:{...form,hero,vehicle}}));
+      const vehicle = clasificarVehicle(form.w1, form.w2);
+      const ws = calcWingateStats(form.w1, form.w2);
+      setProfiles(prev=>({...prev,[name]:{...form,hero,vehicle,fi:ws?.fi||form.fi}}));
       setShowEditModal(false);
     };
     return (
       <div style={{ position:"fixed", inset:0, background:"#000000cc", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <div style={{ background:C.card, border:`1px solid ${C.borderBright}`, width:isMobile?"95vw":"560px", maxHeight:"85vh", overflowY:"auto", padding:"28px" }}>
+        <div style={{ background:C.card, border:`1px solid ${C.gold}44`, width:isMobile?"95vw":"600px", maxHeight:"85vh", overflowY:"auto", padding:"28px" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
             <div style={{ fontSize:"13px", letterSpacing:"3px", color:C.gold, textTransform:"uppercase" }}>Perfil — {name}</div>
             <button onClick={()=>setShowEditModal(false)} style={{ background:"transparent", border:"none", color:C.muted, cursor:"pointer", fontSize:"20px" }}>×</button>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"12px", marginBottom:"16px" }}>
-            {[["deporte","Deporte",["MMA","Boxeo","Muay Thai","BJJ","Lucha","K1","Kickboxing"]],["fase","Fase",["off-camp","camp corto","2 semanas para pelear"]]].map(([k,l,opts])=>(
+            {[["deporte","Deporte",["MMA","Boxeo","Muay Thai","BJJ","Lucha","K1","Kickboxing"]],["fase","Fase ATR",["Acumulación","Transformación","Realización","off-camp","camp corto","2 semanas para pelear"]]].map(([k,l,opts])=>(
               <div key={k}>
                 <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{l}</label>
-                <select value={form[k]||""} onChange={e=>setF(k,e.target.value)} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'DM Mono',monospace", outline:"none" }}>
+                <select value={form[k]||""} onChange={e=>setF(k,e.target.value)} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'Inter',sans-serif", outline:"none" }}>
                   {opts.map(o=><option key={o}>{o}</option>)}
                 </select>
               </div>
             ))}
           </div>
-          <div style={{ fontSize:"11px", letterSpacing:"2px", color:C.red, textTransform:"uppercase", margin:"14px 0 8px" }}>Test Neuromuscular</div>
-          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:"10px", marginBottom:"14px" }}>
-            {[["fr","Fuerza Rel. (xBW)"],["cmj","CMJ (cm)"],["sj","SJ (cm)"]].map(([k,l])=>(
+          <div style={{ fontSize:"11px", letterSpacing:"2px", color:C.gold, textTransform:"uppercase", margin:"14px 0 8px" }}>Test Neuromuscular</div>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr 1fr", gap:"10px", marginBottom:"14px" }}>
+            {[["fr","Fuerza Rel. (xBW)"],["cmj","CMJ (cm)"],["sj","SJ (cm)"],["rsi","RSI"]].map(([k,l])=>(
               <div key={k}>
                 <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{l}</label>
-                <input type="number" value={form[k]||""} onChange={e=>setF(k,e.target.value)} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'DM Mono',monospace", boxSizing:"border-box", outline:"none" }}/>
+                <input type="number" value={form[k]||""} onChange={e=>setF(k,e.target.value)} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'Inter',sans-serif", boxSizing:"border-box", outline:"none" }}/>
               </div>
             ))}
           </div>
-          <div style={{ fontSize:"11px", letterSpacing:"2px", color:C.cyan, textTransform:"uppercase", margin:"14px 0 8px" }}>Doble Wingate</div>
-          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:"10px", marginBottom:"14px" }}>
-            {[["w1","W1 (W)"],["w2","W2 (W)"],["fi","FI (%)"]].map(([k,l])=>(
+          <div style={{ fontSize:"11px", letterSpacing:"2px", color:C.gold, textTransform:"uppercase", margin:"14px 0 8px" }}>Doble Wingate (W/kg)</div>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:"10px", marginBottom:"14px" }}>
+            {[["w1","Sprint 1 (W/kg)"],["w2","Sprint 2 (W/kg)"]].map(([k,l])=>(
               <div key={k}>
                 <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{l}</label>
-                <input type="number" value={form[k]||""} onChange={e=>setF(k,e.target.value)} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'DM Mono',monospace", boxSizing:"border-box", outline:"none" }}/>
+                <input type="number" value={form[k]||""} onChange={e=>setF(k,e.target.value)} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'Inter',sans-serif", boxSizing:"border-box", outline:"none" }}/>
               </div>
             ))}
           </div>
-          {(form.fr||form.cmj) && (() => {
-            const h=clasificarHero(form.fr,form.cmj); const v=clasificarVehicle(form.w1,form.w2,form.fi);
-            return h ? (
-              <div style={{ padding:"10px 14px", background:C.surface, border:`1px solid ${C.border}`, display:"flex", gap:"8px", marginBottom:"14px" }}>
+          {form.w1 && form.w2 && (() => {
+            const ws = calcWingateStats(form.w1, form.w2);
+            if (!ws) return null;
+            return (
+              <div style={{ padding:"10px", background:C.surface, marginBottom:"14px", fontSize:"12px", color:C.textDim }}>
+                Ratio: <strong style={{color:C.text}}>{ws.ratioPercent}%</strong> · FI: <strong style={{color:C.text}}>{ws.fi}%</strong>
+              </div>
+            );
+          })()}
+          <div style={{ fontSize:"11px", letterSpacing:"2px", color:C.gold, textTransform:"uppercase", margin:"14px 0 8px" }}>Tests de Fuerza</div>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:"10px", marginBottom:"14px" }}>
+            {[["pesoMuerto","Peso Muerto (kg)"],["pressBanca","Press Banca (kg)"],["dominadaLastrada","Dominada Lastrada (kg)"],["sentadillaBulgara","Sent. Búlgara (kg×2)"],["colgarse","Colgarse Barra (seg)"]].map(([k,l])=>(
+              <div key={k}>
+                <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{l}</label>
+                <input type="number" value={form[k]||""} onChange={e=>setF(k,e.target.value)} style={{ width:"100%", background:C.surface, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", fontSize:"13px", fontFamily:"'Inter',sans-serif", boxSizing:"border-box", outline:"none" }}/>
+              </div>
+            ))}
+          </div>
+          {(form.fr||form.cmj||form.w1) && (() => {
+            const h=clasificarHero(form.fr,form.cmj); const v=clasificarVehicle(form.w1,form.w2);
+            return (h||v) ? (
+              <div style={{ padding:"10px 14px", background:C.surface, border:`1px solid ${C.border}`, display:"flex", gap:"8px", marginBottom:"14px", flexWrap:"wrap" }}>
                 <span style={{ fontSize:"11px", color:C.muted, letterSpacing:"2px" }}>CLASIF.:</span>
                 {h && <Badge label={`${HERO_DATA[h]?.icon} ${h}`} color={HERO_DATA[h]?.color||C.muted} small />}
                 {v && <Badge label={`${VEHICLE_DATA[v]?.icon} ${v}`} color={VEHICLE_DATA[v]?.color||C.muted} small />}
               </div>
             ) : null;
           })()}
-          <button onClick={save} style={{ width:"100%", padding:"11px", background:C.red, border:"none", color:"#fff", cursor:"pointer", fontSize:"12px", letterSpacing:"3px", fontFamily:"inherit", textTransform:"uppercase" }}>GUARDAR PERFIL</button>
+          <button onClick={save} style={{ width:"100%", padding:"11px", background:C.gold, border:"none", color:"#000", cursor:"pointer", fontSize:"12px", letterSpacing:"3px", fontFamily:"inherit", textTransform:"uppercase", fontWeight:"700" }}>GUARDAR PERFIL</button>
         </div>
       </div>
     );
   };
 
-  // ── RENDER ─────────────────────────────────────────────────────────────────
+  // ── RENDER ──
   return (
-    <div style={{ fontFamily:"'DM Mono','Courier New',monospace", background:C.bg, color:C.text, minHeight:"100vh" }}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+    <div style={{ fontFamily:"'Inter','Helvetica Neue',sans-serif", background:C.bg, color:C.text, minHeight:"100vh" }}>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
       {/* HEADER */}
-      <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:isMobile?"8px 12px":"0 28px", display:"flex", alignItems:isMobile?"flex-start":"center", justifyContent:"space-between", minHeight:"54px", flexWrap:"wrap", gap:"6px", position:"sticky", top:0, zIndex:100 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+      <div style={{ background:C.surface, borderBottom:`1px solid ${C.gold}33`, padding:isMobile?"8px 12px":"0 28px", display:"flex", alignItems:isMobile?"flex-start":"center", justifyContent:"space-between", minHeight:"54px", flexWrap:"wrap", gap:"6px", position:"sticky", top:0, zIndex:100 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
           <button onClick={()=>setMainView("dashboard")} style={{ background:"none", border:"none", cursor:"pointer", display:"flex", alignItems:"center", gap:"8px" }}>
-            <span style={{ fontSize:"17px", fontWeight:"700", letterSpacing:"6px", color:C.red }}>ARES</span>
-            <span style={{ fontSize:"10px", letterSpacing:"3px", color:C.muted }}>LAB</span>
+            <img src={aresLogo} alt="Ares Fighters" style={{ height:"36px", borderRadius:"4px" }} />
+            <div>
+              <span style={{ fontSize:"15px", fontWeight:"700", letterSpacing:"4px", color:C.gold }}>ARES</span>
+              <span style={{ fontSize:"10px", letterSpacing:"2px", color:C.muted, marginLeft:"4px" }}>LAB</span>
+            </div>
           </button>
           <span style={{ color:C.border, margin:"0 4px" }}>|</span>
           {mainView !== "athlete" && navItems.map(({id,label}) => (
-            <button key={id} onClick={()=>setMainView(id)} style={{ padding:"5px 12px", background:mainView===id?C.red+"22":"transparent", border:`1px solid ${mainView===id?C.red:C.border}`, color:mainView===id?C.red:C.muted, cursor:"pointer", fontSize:"11px", letterSpacing:"2px", fontFamily:"inherit", textTransform:"uppercase" }}>{label}</button>
+            <button key={id} onClick={()=>setMainView(id)} style={{ padding:"5px 12px", background:mainView===id?C.gold+"22":"transparent", border:`1px solid ${mainView===id?C.gold:C.border}`, color:mainView===id?C.gold:C.muted, cursor:"pointer", fontSize:"11px", letterSpacing:"2px", fontFamily:"inherit", textTransform:"uppercase" }}>{label}</button>
           ))}
           {mainView === "athlete" && selected && (
-            <span style={{ fontSize:"13px", color:C.text, marginLeft:"4px" }}>› {selected}</span>
+            <span style={{ fontSize:"13px", color:C.gold, marginLeft:"4px" }}>› {selected}</span>
           )}
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
           {lastSync && <span style={{ fontSize:"11px", color:C.muted }}>{lastSync.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}</span>}
-          {loading && <span style={{ fontSize:"13px", color:C.muted, animation:"spin 1s linear infinite", display:"inline-block" }}>⟳</span>}
+          {loading && <span style={{ fontSize:"13px", color:C.gold, animation:"spin 1s linear infinite", display:"inline-block" }}>⟳</span>}
           <button onClick={fetchData} disabled={loading} style={{ padding:"5px 14px", background:"transparent", border:`1px solid ${C.border}`, color:C.muted, cursor:"pointer", fontSize:"11px", letterSpacing:"2px", fontFamily:"inherit" }}>↻ SYNC</button>
-          <a href="https://docs.google.com/forms/d/e/1FAIpQLSdrnCRWIyhCq3YNZJHea4X7hjuWwat_k8X1eoRmJWhAeiZdUg/viewform" target="_blank" rel="noreferrer" style={{ padding:"5px 14px", background:C.red, color:"#fff", fontSize:"11px", letterSpacing:"2px", textDecoration:"none" }}>+ FORM</a>
+          <a href="https://docs.google.com/forms/d/e/1FAIpQLSdrnCRWIyhCq3YNZJHea4X7hjuWwat_k8X1eoRmJWhAeiZdUg/viewform" target="_blank" rel="noreferrer" style={{ padding:"5px 14px", background:C.gold, color:"#000", fontSize:"11px", letterSpacing:"2px", textDecoration:"none", fontWeight:"700" }}>+ FORM</a>
         </div>
       </div>
 
@@ -1086,7 +1254,7 @@ export default function App() {
             <div style={{ fontSize:"30px", marginBottom:"10px" }}>⚠</div>
             <div style={{ color:C.red, letterSpacing:"2px", fontSize:"13px", marginBottom:"12px" }}>{error}</div>
             <div style={{ color:C.muted, fontSize:"12px", marginBottom:"20px" }}>Compartir → Cualquier persona con el enlace → Lector</div>
-            <button onClick={fetchData} style={{ padding:"10px 28px", background:C.red, border:"none", color:"#fff", cursor:"pointer", fontSize:"12px", letterSpacing:"2px", fontFamily:"inherit" }}>REINTENTAR</button>
+            <button onClick={fetchData} style={{ padding:"10px 28px", background:C.gold, border:"none", color:"#000", cursor:"pointer", fontSize:"12px", letterSpacing:"2px", fontFamily:"inherit", fontWeight:"700" }}>REINTENTAR</button>
           </div>
         ) : (
           <>
@@ -1105,7 +1273,7 @@ export default function App() {
         * { box-sizing:border-box; }
         ::-webkit-scrollbar { width:5px; height:5px; }
         ::-webkit-scrollbar-track { background:${C.bg}; }
-        ::-webkit-scrollbar-thumb { background:${C.border}; }
+        ::-webkit-scrollbar-thumb { background:${C.gold}44; }
         button:hover { opacity: 0.85; }
         @media (max-width: 768px) {
           body { overflow-x: hidden; }
