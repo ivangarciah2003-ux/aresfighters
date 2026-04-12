@@ -14,7 +14,220 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      athlete_competitions: {
+        Row: {
+          athlete_name: string
+          created_at: string
+          evento: string
+          fecha: string
+          id: string
+          notas: string | null
+          resultado: string | null
+          rival: string | null
+        }
+        Insert: {
+          athlete_name: string
+          created_at?: string
+          evento: string
+          fecha: string
+          id?: string
+          notas?: string | null
+          resultado?: string | null
+          rival?: string | null
+        }
+        Update: {
+          athlete_name?: string
+          created_at?: string
+          evento?: string
+          fecha?: string
+          id?: string
+          notas?: string | null
+          resultado?: string | null
+          rival?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_competitions_athlete_name_fkey"
+            columns: ["athlete_name"]
+            isOneToOne: false
+            referencedRelation: "athlete_profiles"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      athlete_profiles: {
+        Row: {
+          cmj: number | null
+          colgarse: number | null
+          created_at: string
+          deporte: string | null
+          dominada_lastrada: number | null
+          fase: string | null
+          fi: number | null
+          fr: number | null
+          hero: string | null
+          id: string
+          name: string
+          peso: number | null
+          peso_muerto: number | null
+          press_banca: number | null
+          rsi: number | null
+          sentadilla_bulgara: number | null
+          sj: number | null
+          updated_at: string
+          vehicle: string | null
+          w1: number | null
+          w2: number | null
+        }
+        Insert: {
+          cmj?: number | null
+          colgarse?: number | null
+          created_at?: string
+          deporte?: string | null
+          dominada_lastrada?: number | null
+          fase?: string | null
+          fi?: number | null
+          fr?: number | null
+          hero?: string | null
+          id?: string
+          name: string
+          peso?: number | null
+          peso_muerto?: number | null
+          press_banca?: number | null
+          rsi?: number | null
+          sentadilla_bulgara?: number | null
+          sj?: number | null
+          updated_at?: string
+          vehicle?: string | null
+          w1?: number | null
+          w2?: number | null
+        }
+        Update: {
+          cmj?: number | null
+          colgarse?: number | null
+          created_at?: string
+          deporte?: string | null
+          dominada_lastrada?: number | null
+          fase?: string | null
+          fi?: number | null
+          fr?: number | null
+          hero?: string | null
+          id?: string
+          name?: string
+          peso?: number | null
+          peso_muerto?: number | null
+          press_banca?: number | null
+          rsi?: number | null
+          sentadilla_bulgara?: number | null
+          sj?: number | null
+          updated_at?: string
+          vehicle?: string | null
+          w1?: number | null
+          w2?: number | null
+        }
+        Relationships: []
+      }
+      athlete_tests: {
+        Row: {
+          athlete_name: string
+          cmj: number | null
+          colgarse_segs: number | null
+          created_at: string
+          dominada_lastrada_1rm: number | null
+          dominada_lastrada_kg: number | null
+          dominada_lastrada_reps: number | null
+          fi: number | null
+          fr: number | null
+          hero: string | null
+          id: string
+          notas: string | null
+          peso: number | null
+          peso_muerto_1rm: number | null
+          peso_muerto_kg: number | null
+          peso_muerto_reps: number | null
+          press_banca_1rm: number | null
+          press_banca_kg: number | null
+          press_banca_reps: number | null
+          rsi: number | null
+          sentadilla_bulgara_1rm: number | null
+          sentadilla_bulgara_kg: number | null
+          sentadilla_bulgara_reps: number | null
+          sj: number | null
+          test_date: string
+          vehicle: string | null
+          w1: number | null
+          w2: number | null
+        }
+        Insert: {
+          athlete_name: string
+          cmj?: number | null
+          colgarse_segs?: number | null
+          created_at?: string
+          dominada_lastrada_1rm?: number | null
+          dominada_lastrada_kg?: number | null
+          dominada_lastrada_reps?: number | null
+          fi?: number | null
+          fr?: number | null
+          hero?: string | null
+          id?: string
+          notas?: string | null
+          peso?: number | null
+          peso_muerto_1rm?: number | null
+          peso_muerto_kg?: number | null
+          peso_muerto_reps?: number | null
+          press_banca_1rm?: number | null
+          press_banca_kg?: number | null
+          press_banca_reps?: number | null
+          rsi?: number | null
+          sentadilla_bulgara_1rm?: number | null
+          sentadilla_bulgara_kg?: number | null
+          sentadilla_bulgara_reps?: number | null
+          sj?: number | null
+          test_date: string
+          vehicle?: string | null
+          w1?: number | null
+          w2?: number | null
+        }
+        Update: {
+          athlete_name?: string
+          cmj?: number | null
+          colgarse_segs?: number | null
+          created_at?: string
+          dominada_lastrada_1rm?: number | null
+          dominada_lastrada_kg?: number | null
+          dominada_lastrada_reps?: number | null
+          fi?: number | null
+          fr?: number | null
+          hero?: string | null
+          id?: string
+          notas?: string | null
+          peso?: number | null
+          peso_muerto_1rm?: number | null
+          peso_muerto_kg?: number | null
+          peso_muerto_reps?: number | null
+          press_banca_1rm?: number | null
+          press_banca_kg?: number | null
+          press_banca_reps?: number | null
+          rsi?: number | null
+          sentadilla_bulgara_1rm?: number | null
+          sentadilla_bulgara_kg?: number | null
+          sentadilla_bulgara_reps?: number | null
+          sj?: number | null
+          test_date?: string
+          vehicle?: string | null
+          w1?: number | null
+          w2?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_tests_athlete_name_fkey"
+            columns: ["athlete_name"]
+            isOneToOne: false
+            referencedRelation: "athlete_profiles"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
