@@ -496,7 +496,7 @@ export default function App() {
   // ── DASHBOARD ──────────────────────────────────────────────────────────────
   const DashboardView = () => (
     <div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"12px", marginBottom:"24px" }}>
+      <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)", gap:"12px", marginBottom:"24px" }}>
         <StatBox label="Atletas" value={allAthleteNames.length} color={C.cyan} />
         <StatBox label="Registros hoy" value={`${registeredToday.length}/${allAthleteNames.length}`} color={C.green} />
         <StatBox label="Total registros" value={allRows.length} color={C.gold} />
@@ -514,7 +514,7 @@ export default function App() {
           });
         });
         return (
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"12px", marginBottom:"20px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:"12px", marginBottom:"20px" }}>
             {sin.length > 0 && (
               <div style={{ background:C.redDim, border:`1px solid ${C.red}`, padding:"12px 16px" }}>
                 <div style={{ fontSize:"11px", letterSpacing:"2px", color:C.red, textTransform:"uppercase", marginBottom:"4px" }}>⚠ Sin registro hoy ({sin.length})</div>
@@ -613,7 +613,7 @@ export default function App() {
     return (
       <div>
         {/* Header atleta */}
-        <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"20px" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"20px", flexWrap:"wrap" }}>
           <button onClick={()=>setMainView("dashboard")} style={{ background:"transparent", border:`1px solid ${C.border}`, color:C.muted, padding:"7px 14px", cursor:"pointer", fontSize:"11px", fontFamily:"inherit" }}>← VOLVER</button>
           <div style={{ width:"44px", height:"44px", borderRadius:"50%", background:(hInfo?.color||C.muted)+"22", border:`2px solid ${hInfo?.color||C.muted}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px" }}>{hInfo?.icon||"👤"}</div>
           <div style={{ flex:1 }}>
@@ -640,13 +640,13 @@ export default function App() {
         {/* ── OVERVIEW ── */}
         {athleteTab === "overview" && (
           <div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"12px", marginBottom:"20px" }}>
+            <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)", gap:"12px", marginBottom:"20px" }}>
               <StatBox label="Registros" value={rows.length} color={C.cyan} />
               <StatBox label="UA Hoy" value={todayUA||"–"} color={sem.color} sub={sem.label} />
               <StatBox label="UA Total" value={totalUA.toLocaleString()} color={C.gold} />
               <StatBox label="Wellness med." value={avgW} color={parseFloat(avgW)>=3.5?C.green:parseFloat(avgW)>=2.5?C.yellow:C.red} sub="/ 5.0" />
             </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px", marginBottom:"16px" }}>
+            <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:"16px", marginBottom:"16px" }}>
               {/* Perfil ARES */}
               <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px" }}>
                 <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"14px", textTransform:"uppercase" }}>Perfil ARES</div>
@@ -773,7 +773,7 @@ export default function App() {
         {/* ── ACWR ── */}
         {athleteTab === "acwr" && (
           <div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"12px", marginBottom:"20px" }}>
+            <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)", gap:"12px", marginBottom:"20px" }}>
               <StatBox label="Carga Aguda (7d)" value={acwr.acute} color={C.cyan} sub="UA / día" />
               <StatBox label="Carga Crónica (28d)" value={acwr.chronic} color={C.gold} sub="UA / día" />
               <StatBox label="ACWR" value={acwr.ratio||"–"} color={acwr.ratio ? (parseFloat(acwr.ratio)>1.3?C.red:parseFloat(acwr.ratio)<0.8?C.yellow:C.green) : C.muted} sub={acwr.ratio ? (parseFloat(acwr.ratio)>1.3?"⚠ Alto":parseFloat(acwr.ratio)<0.8?"↓ Bajo":"✓ Óptimo") : "Min. 7 días"} />
@@ -781,7 +781,7 @@ export default function App() {
             </div>
             <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px", marginBottom:"16px" }}>
               <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"8px", textTransform:"uppercase" }}>Interpretación ACWR</div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"10px" }}>
+              <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:"10px" }}>
                 {[["< 0.8", "Carga baja", "Puede aumentarse con seguridad", C.yellow],["0.8 – 1.3","Zona óptima","Riesgo de lesión bajo. Mantener.",C.green],["> 1.3","Zona de riesgo","Reducir carga aguda. Riesgo elevado.",C.red]].map(([r,l,d,c])=>(
                   <div key={r} style={{ padding:"12px", background:C.surface, borderLeft:`3px solid ${c}` }}>
                     <div style={{ fontSize:"14px", fontWeight:"700", color:c }}>{r}</div>
@@ -857,7 +857,7 @@ export default function App() {
       <div>
         <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px", marginBottom:"16px" }}>
           <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"14px", textTransform:"uppercase" }}>Nuevo Test</div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"10px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)", gap:"10px" }}>
             {[["date","Fecha","date"],["cmj","CMJ (cm)","number"],["sj","SJ (cm)","number"],["fr","Fuerza Rel. (xBW)","number"],["w1","W1 (W)","number"],["w2","W2 (W)","number"],["fi","FI (%)","number"],["notas","Notas","text"]].map(([k,l,t])=>(
               <div key={k} style={{ gridColumn:k==="notas"?"span 2":"span 1" }}>
                 <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{l}</label>
@@ -956,7 +956,7 @@ export default function App() {
         })}
         <div style={{ background:C.card, border:`1px solid ${C.border}`, padding:"20px", marginBottom:"16px" }}>
           <div style={{ fontSize:"11px", letterSpacing:"3px", color:C.gold, marginBottom:"14px", textTransform:"uppercase" }}>Añadir Competición</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"10px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:"10px" }}>
             {[["date","Fecha","date"],["evento","Evento","text"],["categoria","Categoría","text"],["resultado","Resultado","text"],["notas","Notas","text"]].map(([k,l,t])=>(
               <div key={k}>
                 <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{l}</label>
@@ -997,7 +997,7 @@ export default function App() {
     };
     return (
       <div style={{ position:"fixed", inset:0, background:"#000000cc", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <div style={{ background:C.card, border:`1px solid ${C.borderBright}`, width:"560px", maxHeight:"85vh", overflowY:"auto", padding:"28px" }}>
+        <div style={{ background:C.card, border:`1px solid ${C.borderBright}`, width:isMobile?"95vw":"560px", maxHeight:"85vh", overflowY:"auto", padding:"28px" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
             <div style={{ fontSize:"13px", letterSpacing:"3px", color:C.gold, textTransform:"uppercase" }}>Perfil — {name}</div>
             <button onClick={()=>setShowEditModal(false)} style={{ background:"transparent", border:"none", color:C.muted, cursor:"pointer", fontSize:"20px" }}>×</button>
@@ -1013,7 +1013,7 @@ export default function App() {
             ))}
           </div>
           <div style={{ fontSize:"11px", letterSpacing:"2px", color:C.red, textTransform:"uppercase", margin:"14px 0 8px" }}>Test Neuromuscular</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"10px", marginBottom:"14px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:"10px", marginBottom:"14px" }}>
             {[["fr","Fuerza Rel. (xBW)"],["cmj","CMJ (cm)"],["sj","SJ (cm)"]].map(([k,l])=>(
               <div key={k}>
                 <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{l}</label>
@@ -1022,7 +1022,7 @@ export default function App() {
             ))}
           </div>
           <div style={{ fontSize:"11px", letterSpacing:"2px", color:C.cyan, textTransform:"uppercase", margin:"14px 0 8px" }}>Doble Wingate</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"10px", marginBottom:"14px" }}>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:"10px", marginBottom:"14px" }}>
             {[["w1","W1 (W)"],["w2","W2 (W)"],["fi","FI (%)"]].map(([k,l])=>(
               <div key={k}>
                 <label style={{ display:"block", fontSize:"10px", letterSpacing:"2px", color:C.muted, textTransform:"uppercase", marginBottom:"4px" }}>{l}</label>
@@ -1052,7 +1052,7 @@ export default function App() {
       <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
 
       {/* HEADER */}
-      <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:"0 28px", display:"flex", alignItems:"center", justifyContent:"space-between", height:"54px", position:"sticky", top:0, zIndex:100 }}>
+      <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:isMobile?"8px 12px":"0 28px", display:"flex", alignItems:isMobile?"flex-start":"center", justifyContent:"space-between", minHeight:"54px", flexWrap:"wrap", gap:"6px", position:"sticky", top:0, zIndex:100 }}>
         <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
           <button onClick={()=>setMainView("dashboard")} style={{ background:"none", border:"none", cursor:"pointer", display:"flex", alignItems:"center", gap:"8px" }}>
             <span style={{ fontSize:"17px", fontWeight:"700", letterSpacing:"6px", color:C.red }}>ARES</span>
@@ -1075,7 +1075,7 @@ export default function App() {
       </div>
 
       {/* MAIN */}
-      <div style={{ padding:"28px", maxWidth:"1400px", margin:"0 auto" }}>
+      <div style={{ padding:isMobile?"12px":"28px", maxWidth:"1400px", margin:"0 auto" }}>
         {loading && allRows.length === 0 ? (
           <div style={{ textAlign:"center", padding:"80px", color:C.muted }}>
             <div style={{ fontSize:"30px", marginBottom:"12px", animation:"spin 1s linear infinite", display:"inline-block" }}>⟳</div>
