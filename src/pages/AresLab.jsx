@@ -1282,7 +1282,7 @@ export default function App() {
     return (
       <div>
         {/* Phase selector */}
-        <div style={{ display:"flex", gap:"8px", marginBottom:"20px", flexWrap:"wrap" }}>
+        <div style={{ display:"flex", gap:"8px", marginBottom:"20px", flexWrap:"wrap", alignItems:"center" }}>
           {Object.entries(ATR_DATA).map(([key, data]) => (
             <button key={key} onClick={()=>setSelectedPhase(key)} style={{
               padding:"10px 20px", cursor:"pointer", fontSize:"12px", letterSpacing:"2px",
@@ -1295,6 +1295,27 @@ export default function App() {
               {data.icon} {key.toUpperCase()}
             </button>
           ))}
+          <button onClick={() => {
+            let text = "SISTEMA ATR — ARES LAB\n" + "=".repeat(50) + "\n\n";
+            Object.entries(ATR_DATA).forEach(([key, data]) => {
+              text += `${data.icon} ${key.toUpperCase()}\n`;
+              text += `Tagline: ${data.tagline}\n`;
+              text += `Dominante: ${data.dominante.join(", ")}\n`;
+              text += `Objetivo: ${data.objetivo}\n\n`;
+              Object.entries(data.bloques).forEach(([bk, bl]) => {
+                text += `  ▸ ${bk}: ${bl.desc}\n`;
+                bl.ejercicios.forEach(e => { text += `    › ${e}\n`; });
+                text += "\n";
+              });
+              text += "\n";
+            });
+            const blob = new Blob([text], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href = url; a.download = "ATR_ARES_LAB.txt"; a.click();
+            URL.revokeObjectURL(url);
+          }} style={{ marginLeft:"auto", padding:"8px 16px", background:"transparent", border:`1px solid ${C.gold}`, color:C.gold, cursor:"pointer", fontSize:"11px", letterSpacing:"2px", fontFamily:"inherit" }}>
+            ⬇ DESCARGAR ATR
+          </button>
         </div>
 
         {/* Phase header */}
