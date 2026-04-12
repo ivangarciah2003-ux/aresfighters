@@ -1063,7 +1063,7 @@ export default function App() {
     const best1RM = Math.max(pm1RM||0, sb1RM||0);
     const autoFR = calcFR(best1RM, nt.peso);
 
-    const addTest = () => {
+    const addTest = async () => {
       if (!nt.date) return;
       const fr = autoFR || nt.fr;
       const hero = clasificarHero(fr, nt.cmj);
