@@ -1421,12 +1421,25 @@ export default function App() {
     const name = editingAthlete;
     const [form, setForm] = useState({ deporte:"MMA", fase:"off-camp", ...(profiles[name]||{}) });
     const setF = (k,v) => setForm(p=>({...p,[k]:v}));
-    const save = () => {
+    const save = async () => {
       const hero = clasificarHero(form.fr, form.cmj);
       const vehicle = clasificarVehicle(form.w1, form.w2);
       const ws = calcWingateStats(form.w1, form.w2);
-      setProfiles(prev=>({...prev,[name]:{...form,hero,vehicle,fi:ws?.fi||form.fi}}));
+      const updatedProfile = {...form, hero, vehicle, fi: ws?.fi||form.fi};
+      setProfiles(prev=>({...prev,[name]:{...prev[name], ...updatedProfile}}));
       setShowEditModal(false);
+      try {
+        await supabase.from("athlete_profiles").upsert({
+          name,
+          deporte: form.deporte, fase: form.fase, peso: form.peso,
+          cmj: form.cmj, sj: form.sj, rsi: form.rsi, fr: form.fr,
+          w1: form.w1, w2: form.w2, fi: ws?.fi||form.fi,
+          hero, vehicle,
+          peso_muerto: form.pesoMuerto, press_banca: form.pressBanca,
+          dominada_lastrada: form.dominadaLastrada, sentadilla_bulgara: form.sentadillaBulgara,
+          colgarse: form.colgarse,
+        }, { onConflict: "name" });
+      } catch (e) { console.error("Error saving profile:", e); }
     };
     return (
       <div style={{ position:"fixed", inset:0, background:"#000000cc", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center" }}>
