@@ -1105,6 +1105,9 @@ export default function App() {
         ::-webkit-scrollbar-track { background:${C.bg}; }
         ::-webkit-scrollbar-thumb { background:${C.border}; }
         button:hover { opacity: 0.85; }
+        @media (max-width: 768px) {
+          body { overflow-x: hidden; }
+        }
       `}</style>
     </div>
   );
