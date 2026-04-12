@@ -957,6 +957,11 @@ export default function App() {
           <TestsTab name={name} prof={prof} onSave={(data)=>updateProfile(name, data)} isMobile={isMobile} />
         )}
 
+        {/* ── ATR ── */}
+        {athleteTab === "atr" && (
+          <ATRTab name={name} prof={prof} isMobile={isMobile} />
+        )}
+
         {/* ── COMP ── */}
         {athleteTab === "comp" && (
           <CompTab name={name} prof={prof} onSave={(data)=>updateProfile(name, data)} isMobile={isMobile} />
