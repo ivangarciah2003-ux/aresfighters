@@ -1381,6 +1381,7 @@ export default function App() {
             }}>
               {data.icon} {key.toUpperCase()}
             </button>
+          ))}
         </div>
 
         {/* Phase header */}
